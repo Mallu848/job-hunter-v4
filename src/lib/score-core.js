@@ -3,6 +3,7 @@
 // import it without booting a database.
 
 import { z } from 'zod';
+import { callAnthropic, extractJson } from './anthropic.js';
 
 export const MODEL = 'claude-haiku-4-5';
 const RESUME_MAX = 4000;
@@ -57,42 +58,6 @@ Return ONLY valid JSON, no other text:
 {"score": <int 0-100>, "reasons": [<up to 3 short strings>], "matched_skills": [<strings>], "missing_keywords": [<strings>], "red_flags": [<strings>]}`;
 }
 
-function extractJson(text) {
-  const m = String(text || '').match(/\{[\s\S]*\}/);
-  if (!m) throw new Error('no JSON object in response');
-  return JSON.parse(m[0]);
-}
-
-async function callAnthropic(prompt, fetchImpl) {
-  const resp = await fetchImpl('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 400,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(`anthropic ${resp.status}: ${data.error?.message || 'error'}`);
-  const text = (data.content || [])
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('')
-    .trim();
-  return {
-    text,
-    usage: {
-      inputTokens: data.usage?.input_tokens ?? 0,
-      outputTokens: data.usage?.output_tokens ?? 0,
-    },
-  };
-}
-
 /**
  * Score one job. DB-free (testable): returns { parsed, calls } where calls is
  * one usage entry per API call made (1 or 2 with the retry).
@@ -100,13 +65,12 @@ async function callAnthropic(prompt, fetchImpl) {
  */
 export async function scoreJob(job, profile, masterResumeText, deps = {}) {
   const fetchImpl = deps.fetch || fetch;
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not set');
 
   const prompt = buildScorePrompt(job, profile, masterResumeText);
   const calls = [];
 
   try {
-    const first = await callAnthropic(prompt, fetchImpl);
+    const first = await callAnthropic({ model: MODEL, prompt, maxTokens: 400, fetchImpl });
     calls.push(first.usage);
     try {
       return { parsed: scoreSchema.parse(extractJson(first.text)), calls };
@@ -114,7 +78,7 @@ export async function scoreJob(job, profile, masterResumeText, deps = {}) {
       // One retry with a "valid JSON only" nudge, then give up (caller leaves
       // the job unscored — never crash, never lose a job).
       const nudge = `${prompt}\n\nIMPORTANT: your previous reply was not valid JSON. Return ONLY the JSON object described above — no prose, no markdown fences.`;
-      const second = await callAnthropic(nudge, fetchImpl);
+      const second = await callAnthropic({ model: MODEL, prompt: nudge, maxTokens: 400, fetchImpl });
       calls.push(second.usage);
       return { parsed: scoreSchema.parse(extractJson(second.text)), calls };
     }

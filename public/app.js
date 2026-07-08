@@ -154,6 +154,7 @@ function initTabs() {
         loadJobs();
         loadLastScan();
       }
+      if (btn.dataset.tab === 'resumes') loadResumes();
       if (btn.dataset.tab === 'settings') {
         loadSettings();
         loadWatchlist();
@@ -278,8 +279,41 @@ function openDetailPanel(app) {
   document.getElementById('detail-notes').value = app.notes || '';
 
   loadEvents(app.id);
+  loadResumeOptions(app);
 
   panel.hidden = false;
+}
+
+// Offer a resume link when the application's job has tailored resumes.
+async function loadResumeOptions(app) {
+  const label = document.getElementById('detail-resume-label');
+  const select = document.getElementById('detail-resume');
+  select.textContent = '';
+  label.hidden = true;
+  if (!app.job_id) return;
+
+  let all;
+  try {
+    all = await apiJson('/api/resumes');
+  } catch (err) {
+    return;
+  }
+  const tailored = (all || []).filter((r) => r.kind === 'tailored' && r.job_id === app.job_id);
+  if (!tailored.length) return;
+
+  const noneOpt = document.createElement('option');
+  noneOpt.value = '';
+  noneOpt.textContent = '(none)';
+  select.appendChild(noneOpt);
+  for (const r of tailored) {
+    const opt = document.createElement('option');
+    opt.value = String(r.id);
+    const when = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
+    opt.textContent = `Tailored #${r.id}${when ? ` (${when})` : ''}`;
+    select.appendChild(opt);
+  }
+  select.value = app.resume_id ? String(app.resume_id) : '';
+  label.hidden = false;
 }
 
 function closeDetailPanel() {
@@ -327,6 +361,20 @@ function initDetailPanel() {
       showToast('Status updated.');
     } catch (err) {
       // toast already shown by apiJson
+    }
+  });
+
+  document.getElementById('detail-resume').addEventListener('change', async (e) => {
+    if (!activeApplicationId) return;
+    const value = e.target.value ? Number(e.target.value) : null;
+    try {
+      await apiJson(`/api/applications/${activeApplicationId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ resume_id: value }),
+      });
+      showToast(value ? 'Resume linked.' : 'Resume unlinked.');
+    } catch (err) {
+      // toast already shown
     }
   });
 
@@ -519,6 +567,31 @@ function buildJobRow(job) {
   });
   actions.appendChild(trackBtn);
 
+  const tailorBtn = document.createElement('button');
+  tailorBtn.type = 'button';
+  tailorBtn.className = 'btn-secondary';
+  tailorBtn.textContent = 'Tailor';
+  tailorBtn.addEventListener('click', async () => {
+    tailorBtn.disabled = true;
+    tailorBtn.textContent = 'Tailoring… ~30s';
+    try {
+      const result = await apiJson(`/api/jobs/${job.id}/tailor`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      showToast(`Resume tailored (${result.bullet_count} bullets, ${result.roles} roles).`);
+      switchToTab('resumes');
+      await loadResumes();
+      await showDiff(result.resume_id);
+    } catch (err) {
+      // apiJson already toasted the server's error message
+    } finally {
+      tailorBtn.disabled = false;
+      tailorBtn.textContent = 'Tailor';
+    }
+  });
+  actions.appendChild(tailorBtn);
+
   tdActions.appendChild(actions);
   tr.appendChild(tdActions);
 
@@ -629,28 +702,265 @@ async function loadLastScan() {
   line.textContent = `Last scan: ${ts} (${r.source}: +${r.inserted} new, ${r.skipped_duplicate} dup, ${r.skipped_filtered} filtered)`;
 }
 
+// Scan runs in the background server-side (202), so poll /status every 5s
+// (max ~4 min) until it reports not-running, then refresh.
+const SCAN_POLL_MS = 5000;
+const SCAN_POLL_MAX = 48;
+
 function initScanButton() {
   const btn = document.getElementById('scan-now-btn');
+  const line = document.getElementById('last-scan-line');
+
+  async function pollUntilDone() {
+    for (let i = 0; i < SCAN_POLL_MAX; i++) {
+      await new Promise((r) => setTimeout(r, SCAN_POLL_MS));
+      let status;
+      try {
+        status = await apiJson('/api/ingest/status');
+      } catch (err) {
+        return false; // toast already shown; stop polling
+      }
+      if (!status.running) {
+        const parts = (status.last_runs || []).map(
+          (s) => `${s.source}: +${s.inserted} new (${s.skipped_duplicate} dup, ${s.skipped_filtered} filtered)`,
+        );
+        showToast(parts.length ? parts.join(' | ') : 'Scan finished.');
+        return true;
+      }
+    }
+    showToast('Scan is taking longer than expected — check back shortly.', true);
+    return false;
+  }
+
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     btn.textContent = 'Scanning…';
+    line.textContent = 'scanning…';
     try {
-      const result = await apiJson('/api/ingest', { method: 'POST', body: JSON.stringify({}) });
-      const parts = (result.summaries || []).map(
-        (s) => `${s.source}: +${s.inserted} new (${s.skipped_duplicate} dup, ${s.skipped_filtered} filtered)`,
-      );
-      showToast(parts.length ? parts.join(' | ') : 'Scan finished.');
+      await apiJson('/api/ingest', { method: 'POST', body: JSON.stringify({}) });
+      await pollUntilDone();
       await loadJobs();
       await loadLastScan();
     } catch (err) {
       if (err && err.status === 409) {
         showToast('A scan is already running.', true);
       }
+      await loadLastScan();
     } finally {
       btn.disabled = false;
       btn.textContent = 'Scan now';
     }
   });
+}
+
+// ---------- Resumes tab ----------
+
+function resumeLabel(r) {
+  if (r.kind === 'master') return 'Master resume';
+  const jobPart = r.job ? `${r.job.title} @ ${r.job.company}` : `job #${r.job_id}`;
+  return `Tailored — ${jobPart}`;
+}
+
+function buildResumeItem(r) {
+  const li = document.createElement('li');
+
+  const name = document.createElement('span');
+  name.className = 'wl-name';
+  name.textContent = resumeLabel(r);
+  li.appendChild(name);
+
+  const meta = document.createElement('span');
+  meta.className = 'wl-meta';
+  meta.textContent = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
+  li.appendChild(meta);
+
+  if (r.kind === 'tailored') {
+    const diffBtn = document.createElement('button');
+    diffBtn.type = 'button';
+    diffBtn.className = 'btn-secondary';
+    diffBtn.textContent = 'View diff';
+    diffBtn.addEventListener('click', () => showDiff(r.id));
+    li.appendChild(diffBtn);
+
+    const printBtn = document.createElement('button');
+    printBtn.type = 'button';
+    printBtn.className = 'btn-secondary';
+    printBtn.textContent = 'Open print view';
+    printBtn.addEventListener('click', () => openPrintView(r.id));
+    li.appendChild(printBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn-danger';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', async () => {
+      try {
+        await apiJson(`/api/resumes/${r.id}`, { method: 'DELETE' });
+        showToast('Tailored resume deleted.');
+        document.getElementById('diff-view').hidden = true;
+        await loadResumes();
+      } catch (err) {
+        // toast already shown (409 message explains the linked application)
+      }
+    });
+    li.appendChild(deleteBtn);
+  }
+
+  return li;
+}
+
+async function loadResumes() {
+  const list = document.getElementById('resumes-list');
+  const empty = document.getElementById('resumes-empty');
+  list.textContent = '';
+
+  let rows;
+  try {
+    rows = await apiJson('/api/resumes');
+  } catch (err) {
+    return;
+  }
+
+  if (!rows || rows.length === 0) {
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  rows.forEach((r) => list.appendChild(buildResumeItem(r)));
+}
+
+// Fetch renderedHtml with the auth header and open it via a blob URL —
+// never put the secret in a URL.
+async function openPrintView(resumeId) {
+  let row;
+  try {
+    row = await apiJson(`/api/resumes/${resumeId}`);
+  } catch (err) {
+    return;
+  }
+  if (!row.rendered_html) {
+    showToast('No rendered HTML for this resume.', true);
+    return;
+  }
+  const blob = new Blob([row.rendered_html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function diffSection(title) {
+  const wrap = document.createElement('div');
+  wrap.className = 'diff-section';
+  const h = document.createElement('h3');
+  h.textContent = title;
+  wrap.appendChild(h);
+  return wrap;
+}
+
+function mutedLine(text) {
+  const div = document.createElement('div');
+  div.className = 'diff-muted';
+  div.textContent = text;
+  return div;
+}
+
+async function showDiff(resumeId) {
+  let row;
+  try {
+    row = await apiJson(`/api/resumes/${resumeId}`);
+  } catch (err) {
+    return;
+  }
+  const selection = row.content?.selection;
+  const master = row.content?.master_snapshot;
+  if (!selection || !master) {
+    showToast('This resume has no diffable content.', true);
+    return;
+  }
+
+  const view = document.getElementById('diff-view');
+  const title = document.getElementById('diff-title');
+  const body = document.getElementById('diff-body');
+  body.textContent = '';
+  title.textContent = `Master vs tailored (resume #${row.id})`;
+
+  // Summary
+  const summarySec = diffSection(`Summary — variant "${selection.summary_variant}"`);
+  const finalSummary = document.createElement('p');
+  finalSummary.textContent = selection.summary_text;
+  summarySec.appendChild(finalSummary);
+  const masterSummary = master.summary_variants?.[selection.summary_variant];
+  if (masterSummary && masterSummary !== selection.summary_text) {
+    summarySec.appendChild(mutedLine(`master: ${masterSummary}`));
+  }
+  body.appendChild(summarySec);
+
+  // Skills
+  const skillsSec = diffSection('Skills (as tailored)');
+  for (const g of selection.skills) {
+    const line = document.createElement('div');
+    line.className = 'skill-line';
+    const label = document.createElement('strong');
+    label.textContent = `${g.group}: `;
+    line.appendChild(label);
+    line.appendChild(document.createTextNode(g.items.join(', ')));
+    skillsSec.appendChild(line);
+  }
+  body.appendChild(skillsSec);
+
+  // Keywords woven
+  if (Array.isArray(selection.keywords_woven) && selection.keywords_woven.length) {
+    const kwSec = diffSection('Keywords woven');
+    const chipRow = document.createElement('div');
+    chipRow.className = 'chip-row';
+    for (const kw of selection.keywords_woven) {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.textContent = kw;
+      chipRow.appendChild(chip);
+    }
+    kwSec.appendChild(chipRow);
+    body.appendChild(kwSec);
+  }
+
+  // Experience: master bullets vs tailored picks
+  const expSec = diffSection('Experience');
+  for (const masterRole of master.experience || []) {
+    const roleDiv = document.createElement('div');
+    roleDiv.className = 'diff-role';
+    const roleHead = document.createElement('h4');
+    roleHead.textContent = `${masterRole.company} — ${masterRole.title}`;
+    roleDiv.appendChild(roleHead);
+
+    const selRole = (selection.experience || []).find((r) => r.company === masterRole.company);
+    const ul = document.createElement('ul');
+    ul.className = 'diff-bullets';
+
+    (masterRole.bullets || []).forEach((mb, idx) => {
+      const selBullet = selRole?.bullets.find((b) => b.index === idx);
+      const li = document.createElement('li');
+      if (selBullet) {
+        li.textContent = selBullet.text;
+        if (selBullet.text !== mb.text) {
+          li.appendChild(mutedLine(`master: ${mb.text}`));
+        }
+      } else {
+        li.className = 'diff-excluded';
+        li.textContent = mb.text;
+      }
+      ul.appendChild(li);
+    });
+
+    if (!selRole) {
+      roleDiv.appendChild(mutedLine('(role omitted from tailored resume)'));
+    }
+    roleDiv.appendChild(ul);
+    expSec.appendChild(roleDiv);
+  }
+  body.appendChild(expSec);
+
+  view.hidden = false;
+  view.scrollIntoView({ behavior: 'smooth' });
 }
 
 // ---------- Watchlist (Settings tab) ----------

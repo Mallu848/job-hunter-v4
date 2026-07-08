@@ -2,7 +2,7 @@
 // the deterministic pre-filter, dedupes against existing jobs, and inserts
 // survivors as triage='new'. One ingest_runs row per source per run.
 
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, isNull, lt } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { jobs, profiles, ingestRuns } from '../db/schema.js';
 import { getUserId } from './seed.js';
@@ -19,6 +19,22 @@ let inFlight = false;
 
 export function isIngestionRunning() {
   return inFlight;
+}
+
+// Close out ingest_runs rows left open by a dead process (e.g. an OOM kill
+// mid-scan) so they don't read as running forever. Runs at the start of
+// every ingestion.
+export async function sweepOrphanRuns() {
+  const cutoff = new Date(Date.now() - 60 * 60 * 1000); // 1 hour
+  const orphans = await db
+    .update(ingestRuns)
+    .set({ finishedAt: new Date(), error: 'orphaned (process died)' })
+    .where(and(isNull(ingestRuns.finishedAt), lt(ingestRuns.startedAt, cutoff)))
+    .returning({ id: ingestRuns.id });
+  if (orphans.length) {
+    console.warn(`[ingest] closed ${orphans.length} orphaned run(s): ${orphans.map((o) => o.id).join(', ')}`);
+  }
+  return orphans.length;
 }
 
 async function runSource(adapter, profile, userId) {
@@ -122,6 +138,7 @@ export async function runIngestion(sourceName) {
   if (inFlight) return { busy: true, summaries: [] };
   inFlight = true;
   try {
+    await sweepOrphanRuns();
     const userId = await getUserId();
     const [profile] = await db
       .select()

@@ -5,8 +5,12 @@ import { db } from '../db/index.js';
 import { jobs } from '../db/schema.js';
 import { getUserId } from '../lib/seed.js';
 import { dedupeHash } from '../lib/dedupe.js';
+import { runTailor } from '../lib/tailor.js';
 
 const router = Router();
+
+// Per-process guard: one tailor run per job at a time.
+const tailoringJobs = new Set();
 
 const TRIAGE_VALUES = ['new', 'shortlisted', 'dismissed'];
 
@@ -178,6 +182,31 @@ router.patch('/:id', async (req, res, next) => {
     res.json(toJson(row));
   } catch (err) {
     next(err);
+  }
+});
+
+router.post('/:id/tailor', async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+  if (tailoringJobs.has(id)) {
+    return res.status(409).json({ error: 'Already tailoring a resume for this job' });
+  }
+  tailoringJobs.add(id);
+  try {
+    const userId = await getUserId();
+    const result = await runTailor(userId, id);
+    res.status(201).json(result);
+  } catch (err) {
+    if (err.status === 404 || err.status === 400) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    // AI-layer failure (no API key, bad response after retry, network):
+    // clean 500 JSON with the reason — never crash the process.
+    console.error(`[tailor] job ${id} failed: ${err?.message || err}`);
+    res.status(500).json({ error: `Tailoring failed: ${err?.message || 'unknown error'}` });
+  } finally {
+    tailoringJobs.delete(id);
   }
 });
 

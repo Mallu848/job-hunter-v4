@@ -25,6 +25,7 @@
       <nav class="tabs">
         <button type="button" class="tab-btn" data-tab="pipeline">Pipeline</button>
         <button type="button" class="tab-btn" data-tab="jobs">Jobs</button>
+        <button type="button" class="tab-btn" data-tab="resumes">Resumes</button>
         <button type="button" class="tab-btn" data-tab="settings">Settings</button>
       </nav>
     </header>
@@ -78,6 +79,18 @@
             <tbody id="jobs-tbody"></tbody>
           </table>
           <div id="jobs-empty" class="empty-state" hidden>No jobs here yet.</div>
+        </div>
+      </section>
+
+      <section id="tab-resumes" class="tab-panel">
+        <div class="card-form">
+          <h2>Resumes</h2>
+          <ul id="resumes-list" class="resumes-list"></ul>
+          <div id="resumes-empty" class="empty-state" hidden>No resumes yet. Tailor one from the Jobs tab.</div>
+        </div>
+        <div id="diff-view" class="card-form" hidden>
+          <h2 id="diff-title">Diff</h2>
+          <div id="diff-body"></div>
         </div>
       </section>
 
@@ -139,6 +152,10 @@
         <label>Next action<input type="text" id="detail-next-action" /></label>
         <label>Next action date<input type="date" id="detail-next-action-date" /></label>
       </div>
+
+      <label class="full-width" id="detail-resume-label" hidden>Linked resume
+        <select id="detail-resume"></select>
+      </label>
 
       <label class="full-width">Notes
         <textarea id="detail-notes" rows="4"></textarea>

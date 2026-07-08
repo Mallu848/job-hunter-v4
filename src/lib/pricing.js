@@ -3,6 +3,7 @@
 
 export const PRICING = {
   'claude-haiku-4-5': { inputPerM: 1.0, outputPerM: 5.0 },
+  'claude-sonnet-5': { inputPerM: 3.0, outputPerM: 15.0 },
 };
 
 export function costUsd(model, inputTokens, outputTokens) {

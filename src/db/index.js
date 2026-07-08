@@ -20,7 +20,9 @@ if (process.env.DATABASE_URL) {
   // --- PGlite path (persisted locally) ---
   const { drizzle } = await import('drizzle-orm/pglite');
   const { PGlite } = await import('@electric-sql/pglite');
-  const dataDir = path.resolve(__dirname, '../../data/pglite');
+  // PGLITE_DIR override lets tests point at a throwaway directory instead
+  // of the dev database.
+  const dataDir = process.env.PGLITE_DIR || path.resolve(__dirname, '../../data/pglite');
   // PGlite's node FS does a non-recursive mkdir, so a fresh checkout (no
   // ./data at all) would crash on boot without this.
   fs.mkdirSync(dataDir, { recursive: true });

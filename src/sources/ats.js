@@ -80,16 +80,25 @@ export async function fetchJobs(profile, deps = {}) {
 
   if (companies.length === 0) return [];
 
-  const results = await Promise.allSettled(
-    companies.map((c) =>
-      c.ats === 'greenhouse' ? fetchGreenhouse(c, fetchImpl) : fetchLever(c, fetchImpl),
-    ),
-  );
-
+  // Boards are processed SEQUENTIALLY on purpose: fetching every board in
+  // parallel holds all raw JSON payloads (some boards return megabytes) in
+  // memory at once — a prod sweep OOM-killed the container on 2026-07-08.
+  // One board at a time: fetch → normalize → keep only the slim normalized
+  // jobs, let the raw payload go out of scope before the next fetch.
+  // Per-company failures are logged and skipped, never fatal.
   const jobs = [];
-  results.forEach((r, i) => {
-    if (r.status === 'fulfilled') jobs.push(...r.value);
-    else console.warn(`[ats] ${companies[i].ats}/${companies[i].boardSlug}: ${r.reason?.message || r.reason}`);
-  });
-  return jobs.filter((j) => j.title && j.company);
+  for (const c of companies) {
+    try {
+      const normalized =
+        c.ats === 'greenhouse'
+          ? await fetchGreenhouse(c, fetchImpl)
+          : await fetchLever(c, fetchImpl);
+      for (const j of normalized) {
+        if (j.title && j.company) jobs.push(j);
+      }
+    } catch (err) {
+      console.warn(`[ats] ${c.ats}/${c.boardSlug}: ${err?.message || err}`);
+    }
+  }
+  return jobs;
 }

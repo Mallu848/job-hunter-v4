@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { applications, jobs, applicationEvents } from '../db/schema.js';
+import { applications, jobs, applicationEvents, resumes } from '../db/schema.js';
 import { getUserId } from '../lib/seed.js';
 
 const router = Router();
@@ -47,8 +47,19 @@ const postSchema = z
   .object({
     job_id: z.number().int(),
     status: z.enum(STATUSES).optional(),
+    resume_id: z.number().int().nullable().optional(),
   })
   .strict();
+
+// Returns true if the resume id exists and belongs to the user.
+async function resumeBelongsToUser(resumeId, userId) {
+  const [row] = await db
+    .select({ id: resumes.id })
+    .from(resumes)
+    .where(and(eq(resumes.id, resumeId), eq(resumes.userId, userId)))
+    .limit(1);
+  return !!row;
+}
 
 router.post('/', async (req, res, next) => {
   try {
@@ -58,7 +69,7 @@ router.post('/', async (req, res, next) => {
     }
 
     const userId = await getUserId();
-    const { job_id, status } = parsed.data;
+    const { job_id, status, resume_id } = parsed.data;
 
     const [job] = await db
       .select()
@@ -68,6 +79,10 @@ router.post('/', async (req, res, next) => {
 
     if (!job) {
       return res.status(400).json({ error: 'job_id does not exist' });
+    }
+
+    if (resume_id != null && !(await resumeBelongsToUser(resume_id, userId))) {
+      return res.status(400).json({ error: 'resume_id does not exist' });
     }
 
     const initialStatus = status ?? 'saved';
@@ -80,6 +95,7 @@ router.post('/', async (req, res, next) => {
         jobId: job_id,
         status: initialStatus,
         appliedAt,
+        resumeId: resume_id ?? null,
       })
       .returning();
 
@@ -128,6 +144,10 @@ router.patch('/:id', async (req, res, next) => {
     if (!current) return res.status(404).json({ error: 'Not found' });
 
     const d = parsed.data;
+    if (d.resume_id != null && !(await resumeBelongsToUser(d.resume_id, userId))) {
+      return res.status(400).json({ error: 'resume_id does not exist' });
+    }
+
     const updates = { updatedAt: new Date() };
     if (d.resume_id !== undefined) updates.resumeId = d.resume_id;
     if (d.applied_at !== undefined) updates.appliedAt = d.applied_at ? new Date(d.applied_at) : null;

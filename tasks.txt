@@ -1,0 +1,13 @@
+# Job Hunter v4 — pending tasks (see PLAN.md for full context; work in C:\Dev\job-hunter\v4 ONLY)
+
+M1.5 Deploy to Railway (blocked on: Rohan runs `railway login` — check `railway whoami` first):
+- [ ] railway init new project "job-hunter" from C:\Dev\job-hunter\v4; add Postgres (railway add)
+- [ ] Generate FRESH production APP_SECRET (32 hex, NOT the dev one in .env); set it as Railway env var; tell Rohan the value so he can unlock the dashboard
+- [ ] Set ANTHROPIC_API_KEY + RAPIDAPI_KEY Railway env vars (values from local .env — needed for M2/M3)
+- [ ] Deploy (railway up), run db:push against Railway DATABASE_URL
+- [ ] Restore prod data via API (x-app-secret header): PATCH /api/profile with titles "DevOps Engineer, Cloud Engineer, Azure Administrator, IT Systems Engineer", min_salary 90000, remote_only false, score_threshold 55. Master resume raw_text: seeded automatically only if run locally — otherwise copy from local DB or seed-data.json "resume" field via API/script. seed-data.json itself NEVER leaves this machine (has live keys)
+- [ ] Verify live per deploy-and-verify skill: /api/health 200, lock screen loads, profile returns seeded titles. NEVER report deployed without fetching the live URL
+- [ ] Push repo to GitHub org Mallu848 (gh is authenticated) as private repo job-hunter-v4
+- [ ] bash notify.sh "Job Hunter v4 live on Railway: <url>"
+
+Then: M2 ingestion per PLAN.md (Fable specs it, Sonnet implements, Fable reviews).

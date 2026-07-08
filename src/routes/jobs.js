@@ -151,6 +151,10 @@ router.patch('/:id', async (req, res, next) => {
     if (d.score !== undefined) updates.score = d.score;
     if (d.score_reasons !== undefined) updates.scoreReasons = d.score_reasons;
 
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
     // Recompute dedupe_hash if title or company changed.
     if (updates.title !== undefined || updates.company !== undefined) {
       const [current] = await db

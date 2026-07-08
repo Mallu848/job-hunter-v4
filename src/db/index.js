@@ -21,6 +21,9 @@ if (process.env.DATABASE_URL) {
   const { drizzle } = await import('drizzle-orm/pglite');
   const { PGlite } = await import('@electric-sql/pglite');
   const dataDir = path.resolve(__dirname, '../../data/pglite');
+  // PGlite's node FS does a non-recursive mkdir, so a fresh checkout (no
+  // ./data at all) would crash on boot without this.
+  fs.mkdirSync(dataDir, { recursive: true });
   const client = new PGlite(dataDir);
 
   // Auto-create tables for the PGlite path (idempotent). See README for why

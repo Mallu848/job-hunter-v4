@@ -28,9 +28,22 @@ export async function getUserId() {
   return cachedUserId;
 }
 
+let warnedMissingSeed = false;
+
+// Returns the parsed seed-data.json, or null if the file is missing or
+// unparseable (e.g. on Railway, where seed-data.json is gitignored and not
+// deployed). Callers fall back to empty defaults in that case.
 function readSeedData() {
   const seedPath = path.join(rootDir, 'seed-data.json');
-  return JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+  try {
+    return JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+  } catch (err) {
+    if (!warnedMissingSeed) {
+      console.log('seed-data.json not found — seeding empty defaults');
+      warnedMissingSeed = true;
+    }
+    return null;
+  }
 }
 
 // Idempotent boot-time seeding: creates the user (if missing), a default
@@ -50,7 +63,7 @@ export async function seed() {
 
   if (!existingProfile) {
     const raw = readSeedData();
-    const settings = raw.settings || {};
+    const settings = (raw && raw.settings) || {};
 
     const targetTitles = String(settings.titles || '')
       .split(',')
@@ -80,7 +93,7 @@ export async function seed() {
     await db.insert(resumes).values({
       userId,
       kind: 'master',
-      content: { raw_text: raw.resume || '' },
+      content: { raw_text: (raw && raw.resume) || '' },
     });
   }
 }

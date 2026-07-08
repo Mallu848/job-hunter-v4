@@ -7,8 +7,9 @@
 
 [DONE] Push repo to GitHub — https://github.com/Mallu848/job-hunter-v4 (private), main tracking origin, M2 pushed
 
-- [ ] Deploy M2 to Railway (needs Rohan's explicit go: "deploy M2 to production" or similar). Steps: db:push with Postgres DATABASE_PUBLIC_URL (adds watchlist_companies + ingest_runs), then `railway up --detach --service web`, verify /api/ingest/runs returns 200 [] with x-app-secret, notify. Runbook in deploy-and-verify skill.
-- [ ] After M2 is live: Rohan adds watchlist companies in Settings (Greenhouse/Lever board slugs) and optionally adds "clearance" to exclude_keywords (a TS/SCI job slipped through in testing)
+[DONE] Deploy M2 to Railway (2026-07-08) — verified live: first prod scan inserted 9 real jobs. NOTE: drizzle-kit push failed against prod (42P16 serial-PK false drift); tables landed but the watchlist unique constraint had to be added via one-off SQL. Future schema changes: additive SQL scripts, NOT db:push — see deploy-and-verify skill registry.
+
+- [ ] Rohan: add watchlist companies in Settings (Greenhouse/Lever board slugs) and add "clearance" to exclude_keywords (a TS/SCI job slipped through in testing)
 - [ ] (Rohan, low priority) Rotate ANTHROPIC_API_KEY and RAPIDAPI_KEY after the job-hunt sprint — both appeared in session transcripts (via seed-data.json and Railway CLI echo); update local .env, Railway web service vars, and v3's Netlify env vars when done
 
 Next milestone: M2 ingestion per PLAN.md (JobSource interface, JSearch adapter ported from v3, Greenhouse/Lever watchlist, pre-filter, cron 2x/day). Fable specs it, Sonnet implements, Fable reviews.

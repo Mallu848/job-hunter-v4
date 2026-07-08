@@ -1,0 +1,23 @@
+{
+  "name": "job-hunter-v4",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Job Hunter v4 - Milestone 1: application tracker (dual-driver Postgres/PGlite)",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.36.4",
+    "express": "^4.21.1",
+    "pg": "^8.13.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.28.1"
+  }
+}

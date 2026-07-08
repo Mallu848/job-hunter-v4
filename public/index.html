@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Job Hunter</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="lock-screen" class="lock-screen" hidden>
+    <div class="lock-card">
+      <h1>Job Hunter</h1>
+      <p>Enter the app secret to continue.</p>
+      <form id="lock-form">
+        <input type="password" id="lock-input" placeholder="App secret" autocomplete="off" />
+        <button type="submit">Unlock</button>
+      </form>
+      <p id="lock-error" class="lock-error" hidden></p>
+    </div>
+  </div>
+
+  <div id="app" class="app" hidden>
+    <header class="app-header">
+      <h1>Job Hunter</h1>
+      <nav class="tabs">
+        <button type="button" class="tab-btn" data-tab="pipeline">Pipeline</button>
+        <button type="button" class="tab-btn" data-tab="jobs">Jobs</button>
+        <button type="button" class="tab-btn" data-tab="settings">Settings</button>
+      </nav>
+    </header>
+
+    <main class="app-main">
+      <section id="tab-pipeline" class="tab-panel">
+        <div class="board" id="board"></div>
+      </section>
+
+      <section id="tab-jobs" class="tab-panel">
+        <form id="add-job-form" class="card-form">
+          <h2>Add Job</h2>
+          <div class="form-grid">
+            <label>Title<input type="text" name="title" required /></label>
+            <label>Company<input type="text" name="company" required /></label>
+            <label>URL<input type="url" name="url" /></label>
+            <label>Location<input type="text" name="location" /></label>
+            <label>Salary<input type="text" name="salary_text" /></label>
+            <label class="checkbox-label"><input type="checkbox" name="remote" /> Remote</label>
+          </div>
+          <label class="full-width">Description<textarea name="description" rows="3"></textarea></label>
+          <button type="submit">Add Job</button>
+        </form>
+
+        <div class="filter-bar" id="jobs-filter-bar">
+          <button type="button" class="filter-btn" data-filter="new">New</button>
+          <button type="button" class="filter-btn" data-filter="shortlisted">Shortlisted</button>
+          <button type="button" class="filter-btn" data-filter="dismissed">Dismissed</button>
+          <button type="button" class="filter-btn" data-filter="all">All</button>
+        </div>
+
+        <div class="table-wrap">
+          <table id="jobs-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Company</th>
+                <th>Location</th>
+                <th>Salary</th>
+                <th>Source</th>
+                <th>Posted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="jobs-tbody"></tbody>
+          </table>
+          <div id="jobs-empty" class="empty-state" hidden>No jobs here yet.</div>
+        </div>
+      </section>
+
+      <section id="tab-settings" class="tab-panel">
+        <form id="settings-form" class="card-form">
+          <h2>Profile Settings</h2>
+          <label class="full-width">Target Titles (comma separated)
+            <input type="text" name="target_titles" />
+          </label>
+          <div class="form-grid">
+            <label>Min Salary<input type="number" name="min_salary" /></label>
+            <label>Score Threshold<input type="number" name="score_threshold" /></label>
+            <label class="checkbox-label"><input type="checkbox" name="remote_only" /> Remote only</label>
+          </div>
+          <button type="submit">Save Settings</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div id="detail-panel" class="detail-panel" hidden>
+    <div class="detail-backdrop" id="detail-backdrop"></div>
+    <div class="detail-content">
+      <button type="button" class="detail-close" id="detail-close" aria-label="Close">&times;</button>
+      <h2 id="detail-title"></h2>
+      <a id="detail-link" href="#" target="_blank" rel="noopener noreferrer">View job posting</a>
+
+      <label class="full-width">Status
+        <select id="detail-status">
+          <option value="saved">Saved</option>
+          <option value="applied">Applied</option>
+          <option value="interview">Interview</option>
+          <option value="offer">Offer</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </label>
+
+      <div class="form-grid">
+        <label>Next action<input type="text" id="detail-next-action" /></label>
+        <label>Next action date<input type="date" id="detail-next-action-date" /></label>
+      </div>
+
+      <label class="full-width">Notes
+        <textarea id="detail-notes" rows="4"></textarea>
+      </label>
+
+      <h3>Status History</h3>
+      <ul id="detail-events" class="events-list"></ul>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

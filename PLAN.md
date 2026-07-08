@@ -35,7 +35,7 @@ Two-stage: (1) free deterministic pre-filter — title regex vs target_titles, e
 - **M1 — DONE (2026-07-08).** Tracker core: schema, secret auth, jobs/applications CRUD + status events, kanban dashboard, seeding. Reviewed + Playwright-tested. Commits b2e175c, 3a830f8.
 - **M1.5 — DONE (2026-07-08).** Live at https://web-production-e057.up.railway.app; runbook in deploy-and-verify skill registry.
 - **M2 — DONE (2026-07-08), live in prod.** JSearch + Greenhouse/Lever adapters, pre-filter (9 unit tests), dual dedupe, cron 13:00/21:00 UTC, Scan now + watchlist UI. First prod scan: 9 jobs. Schema-change lesson: use additive SQL scripts against prod, not drizzle-kit push (see deploy-and-verify skill).
-- **M3 — Scoring + Telegram digest.** Haiku scoring w/ reasons, ai_usage logging, morning digest: top 5 new jobs (v3's digest.js has the Telegram pattern).
+- **M3 — DONE (2026-07-08), live in prod.** Haiku scoring w/ reasons + auto-dismiss below threshold, ai_usage cost logging, digest cron 13:15 UTC, exclude-keywords UI, usage line. Live-fire: 27 prod jobs scored, 3 above bar, digest delivered (status 200). OPEN MYSTERY: Rohan added watchlist companies but prod watchlist_companies is empty — investigating where they went.
 - **M4 — Resume tailoring.** Bullet-bank master (after Rohan rewrites it), Sonnet tailor endpoint, HTML render, diff view, link to application.
 - **M5 — Polish.** Follow-up nudges (applied >7d stale → Telegram), funnel stats (applied→interview rate per resume variant).
 - Deferred past Phase 1: cover letters, email parsing, more sources, real auth (P2), Stripe (P3).

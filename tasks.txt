@@ -5,7 +5,10 @@
   - Schema pushed, profile + master resume restored, live verification passed (health 200, 401 without secret, profile with secret).
   - Prod APP_SECRET is set on the web service (railway variables --service web); NOT the dev one in .env.
 
-- [ ] (Rohan to approve) Push repo to GitHub org Mallu848 as private repo job-hunter-v4 — blocked by permission classifier in the deploy session; `gh repo create Mallu848/job-hunter-v4 --private --source . --push`
+[DONE] Push repo to GitHub — https://github.com/Mallu848/job-hunter-v4 (private), main tracking origin, M2 pushed
+
+- [ ] Deploy M2 to Railway (needs Rohan's explicit go: "deploy M2 to production" or similar). Steps: db:push with Postgres DATABASE_PUBLIC_URL (adds watchlist_companies + ingest_runs), then `railway up --detach --service web`, verify /api/ingest/runs returns 200 [] with x-app-secret, notify. Runbook in deploy-and-verify skill.
+- [ ] After M2 is live: Rohan adds watchlist companies in Settings (Greenhouse/Lever board slugs) and optionally adds "clearance" to exclude_keywords (a TS/SCI job slipped through in testing)
 - [ ] (Rohan, low priority) Rotate ANTHROPIC_API_KEY and RAPIDAPI_KEY after the job-hunt sprint — both appeared in session transcripts (via seed-data.json and Railway CLI echo); update local .env, Railway web service vars, and v3's Netlify env vars when done
 
 Next milestone: M2 ingestion per PLAN.md (JobSource interface, JSearch adapter ported from v3, Greenhouse/Lever watchlist, pre-filter, cron 2x/day). Fable specs it, Sonnet implements, Fable reviews.

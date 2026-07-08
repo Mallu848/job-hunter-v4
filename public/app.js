@@ -219,9 +219,80 @@ function buildCard(app) {
   return card;
 }
 
+function pct(rateValue) {
+  return rateValue == null ? '—' : `${Math.round(rateValue * 1000) / 10}%`;
+}
+
+// Stats strip above the kanban. Failure hides the strip and never breaks
+// the board itself.
+async function loadStats() {
+  const strip = document.getElementById('stats-strip');
+  const variantWrap = document.getElementById('variant-stats');
+  const variantTbody = document.getElementById('variant-tbody');
+
+  let stats;
+  try {
+    stats = await apiJson('/api/stats');
+  } catch (err) {
+    strip.hidden = true;
+    variantWrap.hidden = true;
+    return;
+  }
+
+  strip.textContent = '';
+  const entries = [
+    ['Saved', stats.pipeline.saved],
+    ['Applied', stats.pipeline.applied],
+    ['Interview', stats.pipeline.interview],
+    ['Offer', stats.pipeline.offer],
+    ['Rejected', stats.pipeline.rejected],
+  ];
+  for (const [label, count] of entries) {
+    const cell = document.createElement('span');
+    cell.className = 'stat-cell';
+    const num = document.createElement('strong');
+    num.textContent = String(count);
+    cell.appendChild(num);
+    cell.appendChild(document.createTextNode(` ${label}`));
+    strip.appendChild(cell);
+  }
+  const rates = document.createElement('span');
+  rates.className = 'stat-rates';
+  rates.textContent = `Applied→Interview: ${pct(stats.funnel.applied_to_interview)} · Interview→Offer: ${pct(stats.funnel.interview_to_offer)}`;
+  strip.appendChild(rates);
+  strip.hidden = false;
+
+  // Variant table: hidden when empty or all-zero.
+  variantTbody.textContent = '';
+  const rows = (stats.by_variant || []).filter((v) => v.ever_applied > 0 || v.ever_interview > 0);
+  if (!rows.length) {
+    variantWrap.hidden = true;
+    return;
+  }
+  for (const v of rows) {
+    const tr = document.createElement('tr');
+    const tdName = document.createElement('td');
+    tdName.textContent = v.variant;
+    tr.appendChild(tdName);
+    const tdApplied = document.createElement('td');
+    tdApplied.textContent = String(v.ever_applied);
+    tr.appendChild(tdApplied);
+    const tdInterview = document.createElement('td');
+    tdInterview.textContent = String(v.ever_interview);
+    tr.appendChild(tdInterview);
+    const tdRate = document.createElement('td');
+    tdRate.textContent = pct(v.applied_to_interview);
+    tr.appendChild(tdRate);
+    variantTbody.appendChild(tr);
+  }
+  variantWrap.hidden = false;
+}
+
 async function loadPipeline() {
   const board = document.getElementById('board');
   board.textContent = '';
+
+  loadStats(); // fire-and-forget: stats failure must not block the kanban
 
   const columns = {};
   STATUS_COLUMNS.forEach(({ key, label }) => {
@@ -774,6 +845,14 @@ function buildResumeItem(r) {
   meta.textContent = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
   li.appendChild(meta);
 
+  // Print view works for both kinds: tailored rows have stored HTML and the
+  // master is rendered on the fly by GET /api/resumes/:id.
+  const printBtn = document.createElement('button');
+  printBtn.type = 'button';
+  printBtn.className = 'btn-secondary';
+  printBtn.textContent = 'Open print view';
+  printBtn.addEventListener('click', () => openPrintView(r.id));
+
   if (r.kind === 'tailored') {
     const diffBtn = document.createElement('button');
     diffBtn.type = 'button';
@@ -781,14 +860,11 @@ function buildResumeItem(r) {
     diffBtn.textContent = 'View diff';
     diffBtn.addEventListener('click', () => showDiff(r.id));
     li.appendChild(diffBtn);
+  }
 
-    const printBtn = document.createElement('button');
-    printBtn.type = 'button';
-    printBtn.className = 'btn-secondary';
-    printBtn.textContent = 'Open print view';
-    printBtn.addEventListener('click', () => openPrintView(r.id));
-    li.appendChild(printBtn);
+  li.appendChild(printBtn);
 
+  if (r.kind === 'tailored') {
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'btn-danger';

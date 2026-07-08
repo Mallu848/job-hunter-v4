@@ -32,6 +32,20 @@
 
     <main class="app-main">
       <section id="tab-pipeline" class="tab-panel">
+        <div id="stats-strip" class="stats-strip" hidden></div>
+        <div id="variant-stats" class="variant-stats" hidden>
+          <table class="variant-table">
+            <thead>
+              <tr>
+                <th>Resume variant</th>
+                <th>Applied</th>
+                <th>Interviews</th>
+                <th>Rate</th>
+              </tr>
+            </thead>
+            <tbody id="variant-tbody"></tbody>
+          </table>
+        </div>
         <div class="board" id="board"></div>
       </section>
 

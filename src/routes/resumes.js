@@ -3,6 +3,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { resumes, jobs, applications } from '../db/schema.js';
 import { getUserId } from '../lib/seed.js';
+import { renderResume } from '../lib/resume-render.js';
 
 const router = Router();
 
@@ -43,6 +44,14 @@ router.get('/:id', async (req, res, next) => {
       .limit(1);
     if (!row) return res.status(404).json({ error: 'Not found' });
 
+    // Master rows have no stored renderedHtml — render on the fly so the
+    // frontend print view works for the master too. Only possible when the
+    // content is the structured form (raw_text-only masters stay null).
+    let renderedHtml = row.renderedHtml;
+    if (!renderedHtml && row.kind === 'master' && Array.isArray(row.content?.experience)) {
+      renderedHtml = renderResume(row.content, null);
+    }
+
     res.json({
       id: row.id,
       kind: row.kind,
@@ -50,7 +59,7 @@ router.get('/:id', async (req, res, next) => {
       parent_id: row.parentId,
       created_at: row.createdAt,
       content: row.content,
-      rendered_html: row.renderedHtml,
+      rendered_html: renderedHtml,
     });
   } catch (err) {
     next(err);

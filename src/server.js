@@ -34,6 +34,7 @@ const scoreRouter = (await import('./routes/score.js')).default;
 const digestRouter = (await import('./routes/digest.js')).default;
 const usageRouter = (await import('./routes/usage.js')).default;
 const resumesRouter = (await import('./routes/resumes.js')).default;
+const statsRouter = (await import('./routes/stats.js')).default;
 const { runIngestion, isIngestionRunning } = await import('./lib/ingest.js');
 const { sendDigest } = await import('./lib/digest.js');
 const { getUserId } = await import('./lib/seed.js');
@@ -54,6 +55,7 @@ apiRouter.use('/score', scoreRouter);
 apiRouter.use('/digest', digestRouter);
 apiRouter.use('/usage', usageRouter);
 apiRouter.use('/resumes', resumesRouter);
+apiRouter.use('/stats', statsRouter);
 
 app.use('/api', apiRouter);
 

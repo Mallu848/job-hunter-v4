@@ -483,6 +483,39 @@ td a {
   text-decoration: line-through;
 }
 
+/* Stats strip (Pipeline tab) */
+.stats-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25em;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6em 1em;
+  margin-bottom: 1em;
+  font-size: 0.9em;
+}
+
+.stat-cell strong {
+  font-size: 1.15em;
+  margin-right: 0.1em;
+}
+
+.stat-rates {
+  margin-left: auto;
+  color: var(--text-dim);
+}
+
+.variant-stats {
+  margin-bottom: 1em;
+}
+
+.variant-table {
+  width: auto;
+  min-width: 50%;
+}
+
 /* Resumes tab */
 .resumes-list {
   list-style: none;

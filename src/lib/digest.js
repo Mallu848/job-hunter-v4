@@ -1,12 +1,13 @@
-// Morning Telegram digest — top new matches from the last 24h.
+// Morning Telegram digest — top new matches from the last 24h plus follow-up
+// nudges (stale applied applications + overdue next actions).
 // Plain text (no parse_mode) to avoid Telegram markdown-escaping bugs.
 
 import { eq, and, gte } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { jobs, profiles } from '../db/schema.js';
-import { formatDigest, TOP_N } from './digest-format.js';
+import { jobs, profiles, applications } from '../db/schema.js';
+import { formatDigest, computeFollowups, TOP_N } from './digest-format.js';
 
-export { formatDigest };
+export { formatDigest, computeFollowups };
 
 export async function buildDigest(userId, { testPrefix = false } = {}) {
   const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
@@ -29,10 +30,29 @@ export async function buildDigest(userId, { testPrefix = false } = {}) {
       reasons: Array.isArray(j.scoreReasons?.reasons) ? j.scoreReasons.reasons : [],
     }));
 
+  // Follow-up nudges: all of the user's applications joined to their jobs;
+  // the pure computeFollowups() picks the stale/overdue ones.
+  const appRows = await db
+    .select({ app: applications, job: jobs })
+    .from(applications)
+    .leftJoin(jobs, eq(applications.jobId, jobs.id))
+    .where(eq(applications.userId, userId));
+
+  const followups = computeFollowups(
+    appRows.map(({ app, job }) => ({
+      status: app.status,
+      applied_at: app.appliedAt,
+      next_action: app.nextAction,
+      next_action_date: app.nextActionDate,
+      job: job ? { title: job.title, company: job.company } : null,
+    })),
+  );
+
   return {
-    text: formatDigest({ matches, scannedCount: recent.length, threshold, testPrefix }),
+    text: formatDigest({ matches, scannedCount: recent.length, threshold, testPrefix, followups }),
     matches: Math.min(matches.length, TOP_N),
     scanned: recent.length,
+    followups: followups.length,
   };
 }
 
@@ -56,5 +76,11 @@ export async function sendDigest(userId, { testPrefix = false, fetchImpl = fetch
   });
   const ok = resp.ok;
   if (!ok) console.warn(`[digest] telegram send failed: ${resp.status}`);
-  return { sent: ok, status: resp.status, matches: digest.matches, scanned: digest.scanned };
+  return {
+    sent: ok,
+    status: resp.status,
+    matches: digest.matches,
+    scanned: digest.scanned,
+    followups: digest.followups,
+  };
 }

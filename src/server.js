@@ -30,7 +30,12 @@ const jobsRouter = (await import('./routes/jobs.js')).default;
 const applicationsRouter = (await import('./routes/applications.js')).default;
 const ingestRouter = (await import('./routes/ingest.js')).default;
 const watchlistRouter = (await import('./routes/watchlist.js')).default;
+const scoreRouter = (await import('./routes/score.js')).default;
+const digestRouter = (await import('./routes/digest.js')).default;
+const usageRouter = (await import('./routes/usage.js')).default;
 const { runIngestion, isIngestionRunning } = await import('./lib/ingest.js');
+const { sendDigest } = await import('./lib/digest.js');
+const { getUserId } = await import('./lib/seed.js');
 const cron = (await import('node-cron')).default;
 
 const app = express();
@@ -44,6 +49,9 @@ apiRouter.use('/jobs', jobsRouter);
 apiRouter.use('/applications', applicationsRouter);
 apiRouter.use('/ingest', ingestRouter);
 apiRouter.use('/watchlist', watchlistRouter);
+apiRouter.use('/score', scoreRouter);
+apiRouter.use('/digest', digestRouter);
+apiRouter.use('/usage', usageRouter);
 
 app.use('/api', apiRouter);
 
@@ -85,6 +93,24 @@ cron.schedule(
   { timezone: 'Etc/UTC' },
 );
 console.log(`Ingestion cron scheduled: ${cronExpr} (UTC)`);
+
+// Morning digest cron — 15 min after the morning scan by default. Failures
+// are logged, never fatal.
+const digestCronExpr = process.env.DIGEST_CRON || '15 13 * * *';
+cron.schedule(
+  digestCronExpr,
+  async () => {
+    try {
+      const userId = await getUserId();
+      const result = await sendDigest(userId);
+      console.log(`[cron] digest: sent=${result.sent} matches=${result.matches ?? 0}`);
+    } catch (err) {
+      console.error('[cron] digest failed:', err?.message || err);
+    }
+  },
+  { timezone: 'Etc/UTC' },
+);
+console.log(`Digest cron scheduled: ${digestCronExpr} (UTC)`);
 
 app.listen(port, () => {
   console.log(`Job Hunter v4 listening on port ${port} (db driver: ${driver})`);

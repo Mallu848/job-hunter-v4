@@ -65,6 +65,7 @@
           <table id="jobs-table">
             <thead>
               <tr>
+                <th>Score</th>
                 <th>Title</th>
                 <th>Company</th>
                 <th>Location</th>
@@ -86,12 +87,16 @@
           <label class="full-width">Target Titles (comma separated)
             <input type="text" name="target_titles" />
           </label>
+          <label class="full-width">Exclude Keywords (comma separated)
+            <input type="text" name="exclude_keywords" />
+          </label>
           <div class="form-grid">
             <label>Min Salary<input type="number" name="min_salary" /></label>
             <label>Score Threshold<input type="number" name="score_threshold" /></label>
             <label class="checkbox-label"><input type="checkbox" name="remote_only" /> Remote only</label>
           </div>
           <button type="submit">Save Settings</button>
+          <p id="usage-line" class="hint"></p>
         </form>
 
         <div class="card-form">

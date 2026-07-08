@@ -11,6 +11,7 @@ const STATUS_COLUMNS = [
 
 let currentJobsFilter = 'new';
 let activeApplicationId = null;
+let cachedThreshold = 55;
 
 // ---------- Toasts ----------
 
@@ -156,6 +157,7 @@ function initTabs() {
       if (btn.dataset.tab === 'settings') {
         loadSettings();
         loadWatchlist();
+        loadUsage();
       }
     });
   });
@@ -368,8 +370,63 @@ function initDetailPanel() {
 
 // ---------- Jobs tab ----------
 
+function buildScoreBadge(job) {
+  const badge = document.createElement('span');
+  badge.className = 'score-badge';
+  if (job.score == null) {
+    badge.classList.add('score-none');
+    badge.textContent = '—';
+  } else {
+    badge.textContent = String(job.score);
+    if (job.score >= 70) badge.classList.add('score-high');
+    else if (job.score >= cachedThreshold) badge.classList.add('score-mid');
+    else badge.classList.add('score-low');
+  }
+  return badge;
+}
+
+function appendReasonList(container, label, items) {
+  if (!Array.isArray(items) || items.length === 0) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'reason-group';
+  const heading = document.createElement('span');
+  heading.className = 'reason-label';
+  heading.textContent = label;
+  wrap.appendChild(heading);
+  const ul = document.createElement('ul');
+  items.forEach((item) => {
+    const li = document.createElement('li');
+    li.textContent = String(item);
+    ul.appendChild(li);
+  });
+  wrap.appendChild(ul);
+  container.appendChild(wrap);
+}
+
+function buildScoreDetailsRow(job) {
+  const tr = document.createElement('tr');
+  tr.className = 'score-details-row';
+  const td = document.createElement('td');
+  td.colSpan = 8;
+  const r = job.score_reasons || {};
+  appendReasonList(td, 'Reasons', r.reasons);
+  appendReasonList(td, 'Matched skills', r.matched_skills);
+  appendReasonList(td, 'Missing keywords', r.missing_keywords);
+  appendReasonList(td, 'Red flags', r.red_flags);
+  if (!td.hasChildNodes()) {
+    td.textContent = 'Not scored yet.';
+  }
+  tr.appendChild(td);
+  return tr;
+}
+
 function buildJobRow(job) {
   const tr = document.createElement('tr');
+  tr.className = 'job-row';
+
+  const tdScore = document.createElement('td');
+  tdScore.appendChild(buildScoreBadge(job));
+  tr.appendChild(tdScore);
 
   const tdTitle = document.createElement('td');
   if (job.url) {
@@ -465,6 +522,17 @@ function buildJobRow(job) {
   tdActions.appendChild(actions);
   tr.appendChild(tdActions);
 
+  // Click anywhere on the row (except links/buttons) toggles score details.
+  tr.addEventListener('click', (e) => {
+    if (e.target.closest('button') || e.target.closest('a')) return;
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains('score-details-row')) {
+      next.remove();
+    } else {
+      tr.after(buildScoreDetailsRow(job));
+    }
+  });
+
   return tr;
 }
 
@@ -476,7 +544,12 @@ async function loadJobs() {
   const query = currentJobsFilter === 'all' ? '' : `?triage=${currentJobsFilter}`;
   let jobs;
   try {
-    jobs = await apiJson(`/api/jobs${query}`);
+    const [jobsResult, profile] = await Promise.all([
+      apiJson(`/api/jobs${query}`),
+      apiJson('/api/profile'),
+    ]);
+    jobs = jobsResult;
+    if (profile && profile.score_threshold != null) cachedThreshold = profile.score_threshold;
   } catch (err) {
     return;
   }
@@ -486,6 +559,9 @@ async function loadJobs() {
     return;
   }
   empty.hidden = true;
+
+  // Score desc, unscored last (stable: keeps newest-first within equal scores).
+  jobs.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 
   jobs.forEach((job) => tbody.appendChild(buildJobRow(job)));
 }
@@ -682,9 +758,21 @@ async function loadSettings() {
   }
   const form = document.getElementById('settings-form');
   form.elements.target_titles.value = (profile.target_titles || []).join(', ');
+  form.elements.exclude_keywords.value = (profile.exclude_keywords || []).join(', ');
   form.elements.min_salary.value = profile.min_salary != null ? profile.min_salary : '';
   form.elements.score_threshold.value = profile.score_threshold != null ? profile.score_threshold : '';
   form.elements.remote_only.checked = !!profile.remote_only;
+}
+
+async function loadUsage() {
+  const line = document.getElementById('usage-line');
+  let usage;
+  try {
+    usage = await apiJson('/api/usage');
+  } catch (err) {
+    return;
+  }
+  line.textContent = `AI usage this month: ${usage.calls} call${usage.calls === 1 ? '' : 's'}, $${usage.cost_usd.toFixed(4)}`;
 }
 
 function initSettingsForm() {
@@ -696,8 +784,13 @@ function initSettingsForm() {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
+    const excludes = String(data.get('exclude_keywords') || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     const payload = {
       target_titles: titles,
+      exclude_keywords: excludes,
       remote_only: data.get('remote_only') === 'on',
     };
     const minSalary = data.get('min_salary');

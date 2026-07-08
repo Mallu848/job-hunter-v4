@@ -351,6 +351,66 @@ td a {
   gap: 0.4em;
 }
 
+/* Score badges + expandable details */
+.job-row {
+  cursor: pointer;
+}
+
+.score-badge {
+  display: inline-block;
+  min-width: 2.2em;
+  text-align: center;
+  padding: 0.15em 0.4em;
+  border-radius: 5px;
+  font-weight: 600;
+  font-size: 0.85em;
+}
+
+.score-high {
+  background: rgba(76, 175, 125, 0.18);
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+.score-mid {
+  background: rgba(217, 164, 65, 0.15);
+  color: var(--warn);
+  border: 1px solid var(--warn);
+}
+
+.score-low {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.score-none {
+  color: var(--text-dim);
+}
+
+.score-details-row td {
+  background: var(--bg-elevated);
+  white-space: normal;
+  padding: 0.75em 1em;
+}
+
+.reason-group {
+  margin-bottom: 0.5em;
+}
+
+.reason-label {
+  color: var(--text-dim);
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.reason-group ul {
+  margin: 0.2em 0 0 1.2em;
+  padding: 0;
+  font-size: 0.85em;
+}
+
 /* Scan bar */
 .scan-bar {
   display: flex;

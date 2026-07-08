@@ -9,7 +9,9 @@
 
 [DONE] Deploy M2 to Railway (2026-07-08) — verified live: first prod scan inserted 9 real jobs. NOTE: drizzle-kit push failed against prod (42P16 serial-PK false drift); tables landed but the watchlist unique constraint had to be added via one-off SQL. Future schema changes: additive SQL scripts, NOT db:push — see deploy-and-verify skill registry.
 
-- [ ] Rohan: add watchlist companies in Settings (Greenhouse/Lever board slugs) and add "clearance" to exclude_keywords (a TS/SCI job slipped through in testing)
+[DONE] Exclude keywords set on prod via API (2026-07-08): ts/sci, top secret, polygraph, clearance required, active clearance, must hold a clearance. Watchlist companies added by Rohan.
+
+[DONE] M3 build must also add: exclude_keywords input in Settings UI (field exists in API/DB but has NO UI — gap found 2026-07-08) — shipped in M3 with save/reload round-trip verified
 - [ ] (Rohan, low priority) Rotate ANTHROPIC_API_KEY and RAPIDAPI_KEY after the job-hunt sprint — both appeared in session transcripts (via seed-data.json and Railway CLI echo); update local .env, Railway web service vars, and v3's Netlify env vars when done
 
 Next milestone: M2 ingestion per PLAN.md (JobSource interface, JSearch adapter ported from v3, Greenhouse/Lever watchlist, pre-filter, cron 2x/day). Fable specs it, Sonnet implements, Fable reviews.

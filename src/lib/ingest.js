@@ -138,7 +138,18 @@ export async function runIngestion(sourceName) {
     for (const adapter of adapters) {
       summaries.push(await runSource(adapter, profile, userId));
     }
-    return { busy: false, summaries };
+
+    // M3: score whatever the sources just brought in (also backfills any
+    // older unscored jobs). Scoring failure must never fail the ingest run.
+    let scoring = null;
+    try {
+      const { runScoring } = await import('./score.js');
+      scoring = await runScoring(userId);
+    } catch (err) {
+      console.warn(`[ingest] scoring pass failed: ${err?.message || err}`);
+    }
+
+    return { busy: false, summaries, scoring };
   } finally {
     inFlight = false;
   }

@@ -35,6 +35,11 @@
       </section>
 
       <section id="tab-jobs" class="tab-panel">
+        <div class="scan-bar">
+          <button type="button" id="scan-now-btn">Scan now</button>
+          <span id="last-scan-line" class="last-scan"></span>
+        </div>
+
         <form id="add-job-form" class="card-form">
           <h2>Add Job</h2>
           <div class="form-grid">
@@ -88,6 +93,22 @@
           </div>
           <button type="submit">Save Settings</button>
         </form>
+
+        <div class="card-form">
+          <h2>Watchlist</h2>
+          <p class="hint">Company career boards scanned on every ingest (Greenhouse / Lever public APIs).</p>
+          <form id="watchlist-add-form" class="watchlist-add">
+            <input type="text" name="name" placeholder="Company name" required />
+            <select name="ats">
+              <option value="greenhouse">Greenhouse</option>
+              <option value="lever">Lever</option>
+            </select>
+            <input type="text" name="board_slug" placeholder="Board slug" required />
+            <button type="submit">Add</button>
+          </form>
+          <ul id="watchlist-list" class="watchlist-list"></ul>
+          <div id="watchlist-empty" class="empty-state" hidden>No companies on the watchlist yet.</div>
+        </div>
       </section>
     </main>
   </div>

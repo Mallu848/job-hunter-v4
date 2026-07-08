@@ -149,8 +149,14 @@ function initTabs() {
       const panel = document.getElementById(`tab-${btn.dataset.tab}`);
       panel.classList.add('active');
       if (btn.dataset.tab === 'pipeline') loadPipeline();
-      if (btn.dataset.tab === 'jobs') loadJobs();
-      if (btn.dataset.tab === 'settings') loadSettings();
+      if (btn.dataset.tab === 'jobs') {
+        loadJobs();
+        loadLastScan();
+      }
+      if (btn.dataset.tab === 'settings') {
+        loadSettings();
+        loadWatchlist();
+      }
     });
   });
   buttons[0].classList.add('active');
@@ -527,6 +533,144 @@ function initAddJobForm() {
   });
 }
 
+// ---------- Scan now / last scan ----------
+
+async function loadLastScan() {
+  const line = document.getElementById('last-scan-line');
+  let runs;
+  try {
+    runs = await apiJson('/api/ingest/runs?limit=1');
+  } catch (err) {
+    return;
+  }
+  if (!runs || runs.length === 0) {
+    line.textContent = 'No scans yet.';
+    return;
+  }
+  const r = runs[0];
+  const when = r.finished_at || r.started_at;
+  const ts = when ? new Date(when).toLocaleString() : 'unknown time';
+  line.textContent = `Last scan: ${ts} (${r.source}: +${r.inserted} new, ${r.skipped_duplicate} dup, ${r.skipped_filtered} filtered)`;
+}
+
+function initScanButton() {
+  const btn = document.getElementById('scan-now-btn');
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = 'Scanning…';
+    try {
+      const result = await apiJson('/api/ingest', { method: 'POST', body: JSON.stringify({}) });
+      const parts = (result.summaries || []).map(
+        (s) => `${s.source}: +${s.inserted} new (${s.skipped_duplicate} dup, ${s.skipped_filtered} filtered)`,
+      );
+      showToast(parts.length ? parts.join(' | ') : 'Scan finished.');
+      await loadJobs();
+      await loadLastScan();
+    } catch (err) {
+      if (err && err.status === 409) {
+        showToast('A scan is already running.', true);
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Scan now';
+    }
+  });
+}
+
+// ---------- Watchlist (Settings tab) ----------
+
+function buildWatchlistItem(company) {
+  const li = document.createElement('li');
+  if (!company.active) li.classList.add('inactive');
+
+  const name = document.createElement('span');
+  name.className = 'wl-name';
+  name.textContent = company.name;
+  li.appendChild(name);
+
+  const meta = document.createElement('span');
+  meta.className = 'wl-meta';
+  meta.textContent = `${company.ats} / ${company.board_slug}`;
+  li.appendChild(meta);
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = 'btn-secondary';
+  toggleBtn.textContent = company.active ? 'Disable' : 'Enable';
+  toggleBtn.addEventListener('click', async () => {
+    try {
+      await apiJson(`/api/watchlist/${company.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active: !company.active }),
+      });
+      await loadWatchlist();
+    } catch (err) {
+      // toast already shown
+    }
+  });
+  li.appendChild(toggleBtn);
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'btn-danger';
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.addEventListener('click', async () => {
+    try {
+      await apiJson(`/api/watchlist/${company.id}`, { method: 'DELETE' });
+      showToast('Removed from watchlist.');
+      await loadWatchlist();
+    } catch (err) {
+      // toast already shown
+    }
+  });
+  li.appendChild(deleteBtn);
+
+  return li;
+}
+
+async function loadWatchlist() {
+  const list = document.getElementById('watchlist-list');
+  const empty = document.getElementById('watchlist-empty');
+  list.textContent = '';
+
+  let companies;
+  try {
+    companies = await apiJson('/api/watchlist');
+  } catch (err) {
+    return;
+  }
+
+  if (!companies || companies.length === 0) {
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  companies.forEach((c) => list.appendChild(buildWatchlistItem(c)));
+}
+
+function initWatchlistForm() {
+  const form = document.getElementById('watchlist-add-form');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = new FormData(form);
+    const payload = {
+      name: String(data.get('name') || '').trim(),
+      ats: String(data.get('ats') || 'greenhouse'),
+      board_slug: String(data.get('board_slug') || '').trim(),
+    };
+    try {
+      await apiJson('/api/watchlist', { method: 'POST', body: JSON.stringify(payload) });
+      showToast('Company added to watchlist.');
+      form.reset();
+      await loadWatchlist();
+    } catch (err) {
+      if (err && err.status === 409) {
+        showToast('That company/board is already on the watchlist.', true);
+      }
+    }
+  });
+}
+
 // ---------- Settings tab ----------
 
 async function loadSettings() {
@@ -583,6 +727,8 @@ async function init() {
   initJobsFilterBar();
   initAddJobForm();
   initSettingsForm();
+  initScanButton();
+  initWatchlistForm();
 
   const ok = await tryUnlock();
   if (ok) {

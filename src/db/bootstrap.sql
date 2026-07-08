@@ -75,6 +75,30 @@ CREATE TABLE IF NOT EXISTS application_events (
   note TEXT
 );
 
+CREATE TABLE IF NOT EXISTS watchlist_companies (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  name TEXT NOT NULL,
+  ats TEXT NOT NULL,
+  board_slug TEXT NOT NULL,
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (user_id, ats, board_slug)
+);
+
+CREATE TABLE IF NOT EXISTS ingest_runs (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  source TEXT NOT NULL,
+  started_at TIMESTAMPTZ DEFAULT now(),
+  finished_at TIMESTAMPTZ,
+  fetched INTEGER DEFAULT 0,
+  inserted INTEGER DEFAULT 0,
+  skipped_duplicate INTEGER DEFAULT 0,
+  skipped_filtered INTEGER DEFAULT 0,
+  error TEXT
+);
+
 CREATE TABLE IF NOT EXISTS ai_usage (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),

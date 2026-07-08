@@ -28,6 +28,10 @@ const { requireAppSecret } = await import('./lib/auth.js');
 const profileRouter = (await import('./routes/profile.js')).default;
 const jobsRouter = (await import('./routes/jobs.js')).default;
 const applicationsRouter = (await import('./routes/applications.js')).default;
+const ingestRouter = (await import('./routes/ingest.js')).default;
+const watchlistRouter = (await import('./routes/watchlist.js')).default;
+const { runIngestion, isIngestionRunning } = await import('./lib/ingest.js');
+const cron = (await import('node-cron')).default;
 
 const app = express();
 app.use(express.json());
@@ -38,6 +42,8 @@ apiRouter.use(requireAppSecret);
 apiRouter.use('/profile', profileRouter);
 apiRouter.use('/jobs', jobsRouter);
 apiRouter.use('/applications', applicationsRouter);
+apiRouter.use('/ingest', ingestRouter);
+apiRouter.use('/watchlist', watchlistRouter);
 
 app.use('/api', apiRouter);
 
@@ -59,6 +65,26 @@ app.use((err, req, res, next) => {
 const port = process.env.PORT || 3000;
 
 await seed();
+
+// Ingestion cron — 2x/day by default (13:00 and 21:00 UTC). runIngestion has
+// its own in-flight lock shared with POST /api/ingest, so runs never stack.
+const cronExpr = process.env.INGEST_CRON || '0 13,21 * * *';
+cron.schedule(
+  cronExpr,
+  async () => {
+    if (isIngestionRunning()) {
+      console.log('[cron] ingestion already in flight — skipping this tick');
+      return;
+    }
+    try {
+      await runIngestion();
+    } catch (err) {
+      console.error('[cron] ingestion failed:', err?.message || err);
+    }
+  },
+  { timezone: 'Etc/UTC' },
+);
+console.log(`Ingestion cron scheduled: ${cronExpr} (UTC)`);
 
 app.listen(port, () => {
   console.log(`Job Hunter v4 listening on port ${port} (db driver: ${driver})`);

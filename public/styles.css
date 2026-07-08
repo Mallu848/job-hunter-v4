@@ -351,6 +351,78 @@ td a {
   gap: 0.4em;
 }
 
+/* Scan bar */
+.scan-bar {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  margin-bottom: 1em;
+}
+
+.scan-bar button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.last-scan {
+  color: var(--text-dim);
+  font-size: 0.85em;
+}
+
+/* Watchlist */
+.hint {
+  color: var(--text-dim);
+  font-size: 0.85em;
+  margin: 0;
+}
+
+.watchlist-add {
+  display: flex;
+  gap: 0.5em;
+  flex-wrap: wrap;
+}
+
+.watchlist-add input,
+.watchlist-add select {
+  width: auto;
+  flex: 1 1 140px;
+}
+
+.watchlist-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+
+.watchlist-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5em 0.75em;
+  font-size: 0.9em;
+}
+
+.watchlist-list li .wl-name {
+  flex: 1;
+}
+
+.watchlist-list li .wl-meta {
+  color: var(--text-dim);
+  font-size: 0.85em;
+}
+
+.watchlist-list li.inactive .wl-name,
+.watchlist-list li.inactive .wl-meta {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
 /* Toasts */
 .toast-container {
   position: fixed;

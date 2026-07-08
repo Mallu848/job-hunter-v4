@@ -89,6 +89,39 @@ export const applicationEvents = pgTable('application_events', {
   note: text('note'),
 });
 
+export const watchlistCompanies = pgTable(
+  'watchlist_companies',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull().references(() => users.id),
+    name: text('name').notNull(),
+    ats: text('ats').notNull(), // 'greenhouse' | 'lever'
+    boardSlug: text('board_slug').notNull(),
+    active: boolean('active').default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    userAtsSlugUnique: unique('watchlist_user_ats_slug_unique').on(
+      table.userId,
+      table.ats,
+      table.boardSlug,
+    ),
+  }),
+);
+
+export const ingestRuns = pgTable('ingest_runs', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id),
+  source: text('source').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }).defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  fetched: integer('fetched').default(0),
+  inserted: integer('inserted').default(0),
+  skippedDuplicate: integer('skipped_duplicate').default(0),
+  skippedFiltered: integer('skipped_filtered').default(0),
+  error: text('error'),
+});
+
 export const aiUsage = pgTable('ai_usage', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').notNull().references(() => users.id),

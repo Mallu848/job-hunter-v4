@@ -6,6 +6,7 @@ const profile = {
   targetTitles: ['DevOps Engineer', 'Azure Administrator'],
   skills: ['Azure', 'PowerShell'],
   minSalary: 90000,
+  locations: ['Remote (US)', 'Chicago, IL'],
 };
 
 const job = {
@@ -24,6 +25,19 @@ test('prompt includes profile fields and job facts', () => {
   assert.match(p, /Cloud Engineer/);
   assert.match(p, /Acme/);
   assert.match(p, /RESUME TEXT/);
+});
+
+test('prompt renders the location constraint from profile.locations', () => {
+  const p = buildScorePrompt(job, profile, 'RESUME TEXT');
+  assert.match(p, /CANDIDATE LOCATION CONSTRAINT/);
+  assert.match(p, /Acceptable locations: Remote \(US\), Chicago, IL\./);
+  assert.match(p, /can ONLY work US-remote or in\/near these locations/);
+  assert.match(p, /cap the score at 30/);
+});
+
+test('prompt falls back to US-remote when locations is empty', () => {
+  const p = buildScorePrompt(job, { ...profile, locations: [] }, 'x');
+  assert.match(p, /Acceptable locations: US-remote\./);
 });
 
 test('prompt truncates resume to 4000 and description to 6000 chars', () => {

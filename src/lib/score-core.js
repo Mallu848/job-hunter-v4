@@ -23,6 +23,9 @@ export function buildScorePrompt(job, profile, masterResumeText) {
     ? profile.skills.join(', ')
     : '(none listed — infer from resume)';
   const minSalary = profile.minSalary != null ? `$${profile.minSalary}` : 'not specified';
+  const locations = Array.isArray(profile.locations) && profile.locations.length
+    ? profile.locations.join(', ')
+    : 'US-remote';
   const resume = String(masterResumeText || '').slice(0, RESUME_MAX);
   const description = String(job.description || '').slice(0, DESCRIPTION_MAX);
 
@@ -32,6 +35,9 @@ CANDIDATE PROFILE
 - Target titles: ${titles}
 - Skills: ${skills}
 - Minimum salary: ${minSalary}
+
+CANDIDATE LOCATION CONSTRAINT
+Acceptable locations: ${locations}. The candidate can ONLY work US-remote or in/near these locations.
 
 CANDIDATE MASTER RESUME (raw text)
 ${resume}
@@ -45,6 +51,7 @@ Description:
 ${description}
 
 Score 0-100: required-skills match 50%, experience level 30%, industry/role fit 20%.
+If the job location is incompatible with the acceptable locations (non-US and not US-remote), cap the score at 30 and add a red_flags entry naming the location mismatch.
 
 Return ONLY valid JSON, no other text:
 {"score": <int 0-100>, "reasons": [<up to 3 short strings>], "matched_skills": [<strings>], "missing_keywords": [<strings>], "red_flags": [<strings>]}`;

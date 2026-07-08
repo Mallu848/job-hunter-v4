@@ -14,4 +14,6 @@
 [DONE] M3 build must also add: exclude_keywords input in Settings UI (field exists in API/DB but has NO UI — gap found 2026-07-08) — shipped in M3 with save/reload round-trip verified
 - [ ] (Rohan, low priority) Rotate ANTHROPIC_API_KEY and RAPIDAPI_KEY after the job-hunt sprint — both appeared in session transcripts (via seed-data.json and Railway CLI echo); update local .env, Railway web service vars, and v3's Netlify env vars when done
 
-Next milestone: M2 ingestion per PLAN.md (JobSource interface, JSearch adapter ported from v3, Greenhouse/Lever watchlist, pre-filter, cron 2x/day). Fable specs it, Sonnet implements, Fable reviews.
+- [ ] Hardening (bundle into M4 round): (a) ATS adapter — cap board-fetch concurrency at 3 and process boards one at a time instead of holding all 10 parsed JSON payloads in memory (2026-07-08: one ATS sweep OOM-killed the Railway container — flaky, self-healed, but will recur as watchlist grows); (b) POST /api/ingest should return 202 immediately and run async (Railway proxy 502s long requests; the run itself completes server-side); (c) sweep orphaned ingest_runs rows with finished_at NULL older than 1h (one exists from the 17:42Z crash).
+
+Next milestone: M4 resume tailoring per PLAN.md — BLOCKED on Rohan's homework: rewrite master resume as bullet-bank JSON (current prod master is garbled PDF text with stale certs; missing AZ-104, AI-900, Net+, Sec+). Fable writes the tailoring prompts personally; Sonnet wires plumbing.

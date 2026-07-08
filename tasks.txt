@@ -1,13 +1,11 @@
 # Job Hunter v4 — pending tasks (see PLAN.md for full context; work in C:\Dev\job-hunter\v4 ONLY)
 
-M1.5 Deploy to Railway (blocked on: Rohan runs `railway login` — check `railway whoami` first):
-- [ ] railway init new project "job-hunter" from C:\Dev\job-hunter\v4; add Postgres (railway add)
-- [ ] Generate FRESH production APP_SECRET (32 hex, NOT the dev one in .env); set it as Railway env var; tell Rohan the value so he can unlock the dashboard
-- [ ] Set ANTHROPIC_API_KEY + RAPIDAPI_KEY Railway env vars (values from local .env — needed for M2/M3)
-- [ ] Deploy (railway up), run db:push against Railway DATABASE_URL
-- [ ] Restore prod data via API (x-app-secret header): PATCH /api/profile with titles "DevOps Engineer, Cloud Engineer, Azure Administrator, IT Systems Engineer", min_salary 90000, remote_only false, score_threshold 55. Master resume raw_text: seeded automatically only if run locally — otherwise copy from local DB or seed-data.json "resume" field via API/script. seed-data.json itself NEVER leaves this machine (has live keys)
-- [ ] Verify live per deploy-and-verify skill: /api/health 200, lock screen loads, profile returns seeded titles. NEVER report deployed without fetching the live URL
-- [ ] Push repo to GitHub org Mallu848 (gh is authenticated) as private repo job-hunter-v4
-- [ ] bash notify.sh "Job Hunter v4 live on Railway: <url>"
+[DONE] M1.5 Deploy to Railway — LIVE at https://web-production-e057.up.railway.app (2026-07-08)
+  - Project job-hunter-v4, services web + Postgres. Deploy/verify runbook is in the deploy-and-verify skill's site registry.
+  - Schema pushed, profile + master resume restored, live verification passed (health 200, 401 without secret, profile with secret).
+  - Prod APP_SECRET is set on the web service (railway variables --service web); NOT the dev one in .env.
 
-Then: M2 ingestion per PLAN.md (Fable specs it, Sonnet implements, Fable reviews).
+- [ ] (Rohan to approve) Push repo to GitHub org Mallu848 as private repo job-hunter-v4 — blocked by permission classifier in the deploy session; `gh repo create Mallu848/job-hunter-v4 --private --source . --push`
+- [ ] (Rohan, low priority) Rotate ANTHROPIC_API_KEY and RAPIDAPI_KEY after the job-hunt sprint — both appeared in session transcripts (via seed-data.json and Railway CLI echo); update local .env, Railway web service vars, and v3's Netlify env vars when done
+
+Next milestone: M2 ingestion per PLAN.md (JobSource interface, JSearch adapter ported from v3, Greenhouse/Lever watchlist, pre-filter, cron 2x/day). Fable specs it, Sonnet implements, Fable reviews.

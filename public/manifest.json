@@ -1,0 +1,24 @@
+{
+  "name": "Job Hunter",
+  "short_name": "Job Hunter",
+  "description": "Your personal job application command center — scan, score, tailor, and track.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050506",
+  "theme_color": "#050506",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

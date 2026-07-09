@@ -1157,19 +1157,176 @@ td a {
   outline-offset: 2px;
 }
 
-@media (max-width: 720px) {
-  .app-header {
-    gap: 0.8em;
-  }
+/* ===================== MOBILE / PHONE ===================== */
+@media (max-width: 768px) {
   .app-main {
-    padding: 1.5em 1em 3em;
+    padding: 1.4em 0.9em 3em;
   }
+
+  /* Header: brand on top row, tabs + toggle on a full-width second row that
+     scrolls horizontally rather than wrapping into a cramped block. */
+  .app-header {
+    gap: 0.7em 0.8em;
+    padding: 0.8em 1em;
+  }
+  .header-actions {
+    width: 100%;
+    order: 3;
+    justify-content: space-between;
+  }
+  .tabs {
+    flex: 1;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .tab-btn {
+    white-space: nowrap;
+  }
+
+  /* Inputs at 16px so iOS Safari doesn't zoom the page on focus. */
+  input, textarea, select {
+    font-size: 16px;
+  }
+
+  /* Comfortable touch targets. */
+  button {
+    min-height: 42px;
+  }
+  .tab-btn,
+  .theme-toggle {
+    min-height: 38px;
+  }
+
+  /* Smaller display type on small screens. */
+  .card-form > h2,
+  #diff-title,
+  .detail-content h2 {
+    font-size: 1.4rem;
+  }
+  .stat-cell strong {
+    font-size: 1.6rem;
+  }
+
+  /* Kanban stacks to one column. */
   .board {
     grid-template-columns: 1fr;
+  }
+  .board-column {
+    min-height: 0;
   }
   .stat-rates {
     margin-left: 0;
     flex-basis: 100%;
+  }
+
+  /* Jobs table → stacked labelled cards (no more horizontal scrolling). */
+  .table-wrap {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+  #jobs-table thead {
+    display: none;
+  }
+  #jobs-table,
+  #jobs-table tbody {
+    display: block;
+    width: 100%;
+  }
+  #jobs-table tr.job-row {
+    display: block;
+    background: var(--surface-grad);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    padding: 0.3em 0.7em;
+    margin-bottom: 0.7em;
+  }
+  #jobs-table tr.job-row:hover {
+    background: var(--surface-grad);
+  }
+  #jobs-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1em;
+    text-align: right;
+    white-space: normal;
+    border-bottom: 1px solid var(--border);
+    padding: 0.55em 0.2em;
+  }
+  #jobs-table td:empty {
+    display: none; /* hide missing fields (e.g. no salary) instead of blank rows */
+  }
+  #jobs-table td::before {
+    content: attr(data-label);
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+    text-align: left;
+  }
+  /* Actions span the full card width with wrapping, tappable buttons. */
+  #jobs-table td.actions-cell {
+    border-bottom: none;
+    padding-top: 0.7em;
+  }
+  #jobs-table td.actions-cell::before {
+    display: none;
+  }
+  #jobs-table td.actions-cell .row-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.5em;
+  }
+  #jobs-table td.actions-cell .row-actions button {
+    flex: 1 1 40%;
+    min-height: 42px;
+  }
+  /* Expanded score-details row spans the whole card. */
+  #jobs-table tr.score-details-row,
+  #jobs-table tr.score-details-row td {
+    display: block;
+  }
+  #jobs-table tr.score-details-row td::before {
+    display: none;
+  }
+
+  /* List rows wrap their action buttons instead of overflowing. */
+  .watchlist-list li,
+  .resumes-list li {
+    flex-wrap: wrap;
+  }
+  .watchlist-list li .wl-name,
+  .resumes-list li .wl-name {
+    flex: 1 1 100%;
+  }
+
+  /* Detail panel takes the full width on a phone. */
+  .detail-content {
+    width: 100%;
+    max-width: 100vw;
+    padding: 1.4em 1.2em;
+  }
+
+  /* Lighten the ambient background — heavy blur is a mobile GPU cost. */
+  .blob-3,
+  .blob-4 {
+    display: none;
+  }
+  .blob-1 {
+    width: 700px;
+    height: 560px;
+    filter: blur(90px);
+  }
+  .blob-2 {
+    filter: blur(80px);
   }
 }
 

@@ -545,11 +545,14 @@ function buildJobRow(job) {
   const tr = document.createElement('tr');
   tr.className = 'job-row';
 
+  // data-label drives the mobile card layout (td::before shows the label).
   const tdScore = document.createElement('td');
+  tdScore.dataset.label = 'Score';
   tdScore.appendChild(buildScoreBadge(job));
   tr.appendChild(tdScore);
 
   const tdTitle = document.createElement('td');
+  tdTitle.dataset.label = 'Title';
   if (job.url) {
     const a = document.createElement('a');
     a.href = job.url;
@@ -563,26 +566,32 @@ function buildJobRow(job) {
   tr.appendChild(tdTitle);
 
   const tdCompany = document.createElement('td');
+  tdCompany.dataset.label = 'Company';
   tdCompany.textContent = job.company;
   tr.appendChild(tdCompany);
 
   const tdLocation = document.createElement('td');
+  tdLocation.dataset.label = 'Location';
   tdLocation.textContent = job.location || '';
   tr.appendChild(tdLocation);
 
   const tdSalary = document.createElement('td');
+  tdSalary.dataset.label = 'Salary';
   tdSalary.textContent = job.salary_text || '';
   tr.appendChild(tdSalary);
 
   const tdSource = document.createElement('td');
+  tdSource.dataset.label = 'Source';
   tdSource.textContent = job.source || '';
   tr.appendChild(tdSource);
 
   const tdPosted = document.createElement('td');
+  tdPosted.dataset.label = 'Posted';
   tdPosted.textContent = job.posted_at ? new Date(job.posted_at).toLocaleDateString() : '';
   tr.appendChild(tdPosted);
 
   const tdActions = document.createElement('td');
+  tdActions.className = 'actions-cell';
   const actions = document.createElement('div');
   actions.className = 'row-actions';
 

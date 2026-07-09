@@ -28,6 +28,25 @@ test('digest lines include location, reasons, and url', () => {
   assert.match(text, /1 new match\n/);
 });
 
+test('a match with salary appends it after the location', () => {
+  const text = formatDigest({
+    matches: [match(90, 'Cloud Engineer', { company: 'Beta', salary: '$140K–$160K/yr' })],
+    scannedCount: 2,
+    threshold: 55,
+  });
+  assert.match(text, /1\) 90 — Cloud Engineer @ Beta \(Remote\) · \$140K–\$160K\/yr/);
+});
+
+test('a match without salary is unchanged (no trailing separator)', () => {
+  const text = formatDigest({
+    matches: [match(90, 'Cloud Engineer', { company: 'Beta' })],
+    scannedCount: 2,
+    threshold: 55,
+  });
+  assert.match(text, /1\) 90 — Cloud Engineer @ Beta \(Remote\)\n/);
+  assert.doesNotMatch(text, /Beta \(Remote\) ·/);
+});
+
 test('zero matches produces the none-above-bar message', () => {
   const text = formatDigest({ matches: [], scannedCount: 12, threshold: 55 });
   assert.equal(text, 'Job Hunter digest — scanned 12 new jobs, none above your bar (threshold 55).');

@@ -27,6 +27,7 @@ export async function buildDigest(userId, { testPrefix = false } = {}) {
       company: j.company,
       location: j.location,
       url: j.url,
+      salary: j.salaryText || j.scoreReasons?.salary_note || '',
       reasons: Array.isArray(j.scoreReasons?.reasons) ? j.scoreReasons.reasons : [],
     }));
 

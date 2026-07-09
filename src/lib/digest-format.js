@@ -82,9 +82,10 @@ export function formatDigest({
     const sorted = [...matches].sort((a, b) => b.score - a.score).slice(0, TOP_N);
     const lines = sorted.map((m, i) => {
       const loc = m.location ? ` (${m.location})` : '';
+      const pay = m.salary ? ` · ${m.salary}` : '';
       const why = m.reasons && m.reasons.length ? `\n   why: ${m.reasons.join('; ')}` : '';
       const url = m.url ? `\n   ${m.url}` : '';
-      return `${i + 1}) ${m.score} — ${m.title} @ ${m.company}${loc}${why}${url}`;
+      return `${i + 1}) ${m.score} — ${m.title} @ ${m.company}${loc}${pay}${why}${url}`;
     });
     body = `${header} — ${sorted.length} new match${sorted.length === 1 ? '' : 'es'}\n\n${lines.join('\n\n')}`;
   }

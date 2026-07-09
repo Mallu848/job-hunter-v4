@@ -524,19 +524,74 @@ function appendReasonList(container, label, items) {
   container.appendChild(wrap);
 }
 
+// A titled section holding a single paragraph of text (reuses reason-group
+// styling for consistent spacing with the bullet-list sections).
+function appendTextSection(container, label, text) {
+  const wrap = document.createElement('div');
+  wrap.className = 'reason-group';
+  const heading = document.createElement('span');
+  heading.className = 'reason-label';
+  heading.textContent = label;
+  wrap.appendChild(heading);
+  const p = document.createElement('p');
+  p.textContent = text;
+  wrap.appendChild(p);
+  container.appendChild(wrap);
+}
+
 function buildScoreDetailsRow(job) {
   const tr = document.createElement('tr');
   tr.className = 'score-details-row';
   const td = document.createElement('td');
   td.colSpan = 8;
   const r = job.score_reasons || {};
+
+  const hasEnriched = r.summary || (Array.isArray(r.duties) && r.duties.length);
+
+  // 1. Summary
+  if (r.summary) appendTextSection(td, 'Summary', r.summary);
+
+  // 2. Pay — official salary_text preferred, else AI-extracted salary_note
+  const pay = job.salary_text || r.salary_note;
+  if (pay) appendTextSection(td, 'Pay', pay);
+
+  // 3-4. Duties + requirements
+  appendReasonList(td, 'Key duties', r.duties);
+  appendReasonList(td, 'Requirements', r.requirements);
+
+  // 5. Existing scoring detail
   appendReasonList(td, 'Reasons', r.reasons);
   appendReasonList(td, 'Matched skills', r.matched_skills);
   appendReasonList(td, 'Missing keywords', r.missing_keywords);
   appendReasonList(td, 'Red flags', r.red_flags);
-  if (!td.hasChildNodes()) {
-    td.textContent = 'Not scored yet.';
+
+  // 7. Fallback for jobs scored before enrichment (or unscored): show the
+  // raw description, truncated. Only when there's no enriched summary/duties.
+  if (!hasEnriched) {
+    if (job.description) {
+      const truncated = job.description.length > 800
+        ? `${job.description.slice(0, 800)}…`
+        : job.description;
+      appendTextSection(td, 'Description', truncated);
+    } else if (!td.hasChildNodes()) {
+      td.textContent = 'Not scored yet — run a scan to generate a summary.';
+    }
   }
+
+  // 6. Link to the full posting
+  if (job.url) {
+    const linkWrap = document.createElement('div');
+    linkWrap.className = 'reason-group';
+    const a = document.createElement('a');
+    a.className = 'detail-link';
+    a.href = job.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = 'Open full posting ↗';
+    linkWrap.appendChild(a);
+    td.appendChild(linkWrap);
+  }
+
   tr.appendChild(td);
   return tr;
 }
@@ -577,7 +632,14 @@ function buildJobRow(job) {
 
   const tdSalary = document.createElement('td');
   tdSalary.dataset.label = 'Salary';
-  tdSalary.textContent = job.salary_text || '';
+  if (job.salary_text) {
+    tdSalary.textContent = job.salary_text;
+  } else if (job.score_reasons?.salary_note) {
+    // AI-extracted from the description — mark it so CSS can signal it's
+    // unofficial.
+    tdSalary.textContent = `~${job.score_reasons.salary_note}`;
+    tdSalary.classList.add('salary-derived');
+  }
   tr.appendChild(tdSalary);
 
   const tdSource = document.createElement('td');

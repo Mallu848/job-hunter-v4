@@ -6,6 +6,7 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { watchlistCompanies } from '../db/schema.js';
+import { formatSalary } from './salary.js';
 
 const DESCRIPTION_MAX = 10_000;
 
@@ -61,7 +62,14 @@ async function fetchLever(company, fetchImpl) {
     company: company.name,
     location: raw.categories?.location || null,
     remote: /remote/i.test(raw.categories?.location || raw.workplaceType || '') ? true : null,
-    salary_text: null,
+    salary_text: raw.salaryRange
+      ? formatSalary(
+          raw.salaryRange.min,
+          raw.salaryRange.max,
+          raw.salaryRange.interval,
+          raw.salaryRange.currency,
+        )
+      : null,
     description: (raw.descriptionPlain || '').slice(0, DESCRIPTION_MAX) || null,
     posted_at: raw.createdAt ? new Date(raw.createdAt) : null,
   }));

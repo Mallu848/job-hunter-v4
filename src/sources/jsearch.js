@@ -3,6 +3,8 @@
 // first page only, date_posted=week. Queries run via Promise.allSettled so a
 // single failed title never kills the batch.
 
+import { formatSalary } from './salary.js';
+
 const HOST = 'jsearch.p.rapidapi.com';
 const DESCRIPTION_MAX = 10_000;
 
@@ -17,10 +19,12 @@ function mapJob(raw) {
       ? 'Remote'
       : [raw.job_city, raw.job_state, raw.job_country].filter(Boolean).join(', ') || null,
     remote: typeof raw.job_is_remote === 'boolean' ? raw.job_is_remote : null,
-    salary_text:
-      raw.job_min_salary && raw.job_max_salary
-        ? `$${Math.round(raw.job_min_salary / 1000)}K–$${Math.round(raw.job_max_salary / 1000)}K`
-        : null,
+    salary_text: formatSalary(
+      raw.job_min_salary,
+      raw.job_max_salary,
+      raw.job_salary_period,
+      raw.job_salary_currency,
+    ),
     description: (raw.job_description || '').slice(0, DESCRIPTION_MAX) || null,
     posted_at: raw.job_posted_at_datetime_utc ? new Date(raw.job_posted_at_datetime_utc) : null,
   };

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildScorePrompt, scoreJob } from '../src/lib/score-core.js';
+import { buildScorePrompt, scoreJob, scoreSchema } from '../src/lib/score-core.js';
 
 const profile = {
   targetTitles: ['DevOps Engineer', 'Azure Administrator'],
@@ -46,6 +46,49 @@ test('prompt truncates resume to 4000 and description to 6000 chars', () => {
   assert.doesNotMatch(p, /R{4001}/); // ...and not one char more
   assert.match(p, /D{6000}/);
   assert.doesNotMatch(p, /D{6001}/);
+});
+
+test('prompt includes the posting-summary instructions and new JSON keys', () => {
+  const p = buildScorePrompt(job, profile, 'x');
+  assert.match(p, /summary: one plain sentence/);
+  assert.match(p, /duties: 3-5 short phrases/);
+  assert.match(p, /requirements: 3-6 short phrases/);
+  assert.match(p, /salary_note: the compensation exactly as the posting states/);
+  assert.match(p, /"summary": "<string>"/);
+  assert.match(p, /"duties": \[<strings>\]/);
+  assert.match(p, /"requirements": \[<strings>\]/);
+  assert.match(p, /"salary_note": "<string>"/);
+});
+
+test('scoreSchema parses a full response with the new enrichment fields', () => {
+  const parsed = scoreSchema.parse({
+    score: 80,
+    reasons: ['good'],
+    matched_skills: ['Azure'],
+    missing_keywords: [],
+    red_flags: [],
+    summary: 'Runs the cloud platform day to day.',
+    duties: ['Manage Azure', 'On-call'],
+    requirements: ['3y Azure', 'PowerShell'],
+    salary_note: '$140k-$160k/yr',
+  });
+  assert.equal(parsed.summary, 'Runs the cloud platform day to day.');
+  assert.deepEqual(parsed.duties, ['Manage Azure', 'On-call']);
+  assert.equal(parsed.salary_note, '$140k-$160k/yr');
+});
+
+test('scoreSchema still parses old responses without the new fields (defaults)', () => {
+  const parsed = scoreSchema.parse({
+    score: 55,
+    reasons: [],
+    matched_skills: [],
+    missing_keywords: [],
+    red_flags: [],
+  });
+  assert.equal(parsed.summary, '');
+  assert.deepEqual(parsed.duties, []);
+  assert.deepEqual(parsed.requirements, []);
+  assert.equal(parsed.salary_note, '');
 });
 
 function fakeAnthropicResponse(text, usage = { input_tokens: 100, output_tokens: 50 }) {

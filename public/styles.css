@@ -858,6 +858,25 @@ td a {
   font-size: 0.86rem;
   color: var(--fg);
 }
+.reason-group p {
+  margin: 0.3em 0 0;
+  font-size: 0.86rem;
+  color: var(--fg);
+}
+.detail-link {
+  display: inline-block;
+  margin-top: 0.2em;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+.detail-link:hover {
+  color: var(--accent-bright);
+}
+/* AI-extracted salary (from the description, not an official field) */
+.salary-derived {
+  color: var(--fg-muted);
+  font-style: italic;
+}
 
 /* ===================== SCAN BAR ===================== */
 .scan-bar {

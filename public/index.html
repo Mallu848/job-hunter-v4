@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Job Hunter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Alumni+Sans:wght@100;300;400&family=Albert+Sans:wght@400;500;600&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -21,7 +24,13 @@
 
   <div id="app" class="app" hidden>
     <header class="app-header">
-      <h1>Job Hunter</h1>
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-lockup">
+          <span class="brand-eyebrow">Command center</span>
+          <h1 class="wordmark">Job Hunter</h1>
+        </span>
+      </div>
       <nav class="tabs">
         <button type="button" class="tab-btn" data-tab="pipeline">Pipeline</button>
         <button type="button" class="tab-btn" data-tab="jobs">Jobs</button>

@@ -188,6 +188,7 @@ function buildCard(app) {
   const card = document.createElement('div');
   card.className = 'board-card';
   card.dataset.id = String(app.id);
+  card.dataset.status = app.status; // drives the green/yellow/red status accent
 
   const company = document.createElement('div');
   company.className = 'card-company';
@@ -241,15 +242,16 @@ async function loadStats() {
 
   strip.textContent = '';
   const entries = [
-    ['Saved', stats.pipeline.saved],
-    ['Applied', stats.pipeline.applied],
-    ['Interview', stats.pipeline.interview],
-    ['Offer', stats.pipeline.offer],
-    ['Rejected', stats.pipeline.rejected],
+    ['saved', 'Saved', stats.pipeline.saved],
+    ['applied', 'Applied', stats.pipeline.applied],
+    ['interview', 'Interview', stats.pipeline.interview],
+    ['offer', 'Offer', stats.pipeline.offer],
+    ['rejected', 'Rejected', stats.pipeline.rejected],
   ];
-  for (const [label, count] of entries) {
+  for (const [status, label, count] of entries) {
     const cell = document.createElement('span');
     cell.className = 'stat-cell';
+    cell.dataset.status = status; // drives the green/yellow/red status accent
     const num = document.createElement('strong');
     num.textContent = String(count);
     cell.appendChild(num);

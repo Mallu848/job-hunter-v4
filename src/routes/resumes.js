@@ -4,7 +4,14 @@ import { db } from '../db/index.js';
 import { resumes, jobs, applications, aiUsage } from '../db/schema.js';
 import { getUserId } from '../lib/seed.js';
 import { renderResume } from '../lib/resume-render.js';
-import { masterSchema, friendlyZodError, parseResumeText, PARSE_MODEL } from '../lib/master-core.js';
+import {
+  masterSchema,
+  friendlyZodError,
+  parseResumeRaw,
+  lenientMaster,
+  masterIssues,
+  PARSE_MODEL,
+} from '../lib/master-core.js';
 import { extractDocxText } from '../lib/docx.js';
 import { costUsd } from '../lib/pricing.js';
 
@@ -78,21 +85,35 @@ router.post('/master/import', async (req, res, next) => {
     let text;
     try {
       text = await extractDocxText(buffer);
-    } catch {
+    } catch (err) {
+      console.error('[master/import] docx extract failed:', err?.message || err);
       return res.status(422).json({ error: 'Could not read text from that .docx.' });
     }
     if (!text || text.length < 40) {
-      return res.status(422).json({ error: 'That .docx had almost no readable text.' });
+      return res.status(422).json({
+        error:
+          'That .docx had almost no readable text — it may store content in text boxes or images. Try “Edit master resume” to enter it by hand.',
+      });
     }
 
-    let content;
+    let raw;
     let usage;
     try {
-      ({ content, usage } = await parseResumeText(text));
-    } catch {
-      return res
-        .status(502)
-        .json({ error: 'The AI could not parse that resume. Try the manual editor instead.' });
+      ({ raw, usage } = await parseResumeRaw(text));
+    } catch (err) {
+      const message = err?.message || String(err);
+      console.error('[master/import] AI parse failed:', message);
+      // An "anthropic <status>:" message is an API/service error; anything else
+      // (no JSON, truncation) means the model didn't return usable JSON.
+      if (/^anthropic \d+/i.test(message)) {
+        return res
+          .status(502)
+          .json({ error: 'The AI service returned an error — wait a moment and try again.' });
+      }
+      return res.status(422).json({
+        error:
+          "The AI couldn't produce a complete resume from that file (yours may be very long). Try again, or use “Edit master resume”.",
+      });
     }
 
     // Meter the parse call; failure to log must never fail the import.
@@ -109,7 +130,15 @@ router.post('/master/import', async (req, res, next) => {
       /* usage metering is best-effort */
     }
 
-    res.json({ content, text_chars: text.length });
+    // Coerce leniently and report what (if anything) still blocks a save. The
+    // frontend auto-saves when valid, or opens the editor pre-filled when not,
+    // so a strict-schema miss never throws the parsed resume away.
+    const content = lenientMaster(raw);
+    const issues = masterIssues(content);
+    if (issues.length) {
+      console.warn('[master/import] parsed with issues:', issues.join('; '));
+    }
+    res.json({ content, valid: issues.length === 0, issues, text_chars: text.length });
   } catch (err) {
     next(err);
   }

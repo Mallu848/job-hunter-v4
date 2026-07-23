@@ -1395,26 +1395,40 @@ async function importMasterDocx(file) {
   setMasterStatus(`Reading and importing ${file.name}… this takes a few seconds.`);
   try {
     const dataBase64 = await fileToBase64(file);
-    const { content } = await apiJson('/api/resumes/master/import', {
+    const { content, valid, issues } = await apiJson('/api/resumes/master/import', {
       method: 'POST',
       body: JSON.stringify({ filename: file.name, data_base64: dataBase64 }),
     });
-    // Save immediately — the uploaded .docx becomes the master.
-    const saved = await apiJson('/api/resumes/master', {
-      method: 'PUT',
-      body: JSON.stringify({ content }),
-    });
-    masterResumeId = saved.id;
-    setMasterStatus(
-      `Saved as your master resume from ${file.name} — ${countSummary(content)}. Use “Edit master resume” to review or fine-tune.`,
-    );
-    showToast('Master resume replaced.');
-    // If the editor happens to be open, refresh it to the new content.
-    if (masterDraft) {
+
+    if (valid) {
+      // Clean parse — the uploaded .docx becomes the master straight away.
+      const saved = await apiJson('/api/resumes/master', {
+        method: 'PUT',
+        body: JSON.stringify({ content }),
+      });
+      masterResumeId = saved.id;
+      setMasterStatus(
+        `Saved as your master resume from ${file.name} — ${countSummary(content)}. Use “Edit master resume” to review or fine-tune.`,
+      );
+      showToast('Master resume replaced.');
+      if (masterDraft) {
+        masterDraft = masterToDraft(content);
+        renderMasterEditor();
+      }
+      await loadResumes();
+    } else {
+      // Parsed, but a few spots need a human before it can be saved. Don't lose
+      // the work — open the editor pre-filled so it's a fix, not a restart.
       masterDraft = masterToDraft(content);
       renderMasterEditor();
+      document.getElementById('master-editor').hidden = false;
+      const gaps = (issues || []).join('; ');
+      setMasterStatus(
+        `Imported ${file.name}, but a couple of spots need a quick look before saving${gaps ? `: ${gaps}` : ''}. Fix them below, then Save.`,
+        true,
+      );
+      showToast('Imported — needs a quick review before saving.');
     }
-    await loadResumes();
   } catch (err) {
     setMasterStatus('Import failed — see the message above. You can also build it by hand with “Edit master resume”.', true);
   } finally {

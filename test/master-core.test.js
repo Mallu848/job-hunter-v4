@@ -6,8 +6,16 @@ import assert from 'node:assert/strict';
 
 process.env.ANTHROPIC_API_KEY = 'test-key'; // callAnthropic requires it set
 
-const { masterSchema, friendlyZodError, buildParsePrompt, parseResumeText, PARSE_MODEL } =
-  await import('../src/lib/master-core.js');
+const {
+  masterSchema,
+  friendlyZodError,
+  buildParsePrompt,
+  parseResumeText,
+  parseResumeRaw,
+  lenientMaster,
+  masterIssues,
+  PARSE_MODEL,
+} = await import('../src/lib/master-core.js');
 
 const validMaster = {
   contact: { name: 'Rohan Antony', email: 'r@x.test', location: 'Chicago, IL' },
@@ -97,4 +105,46 @@ test('parseResumeText throws when the model reply fails the schema', async () =>
 
 test('PARSE_MODEL is a Sonnet-class model', () => {
   assert.match(PARSE_MODEL, /sonnet/);
+});
+
+test('parseResumeRaw returns the raw object without enforcing the schema', async () => {
+  const broken = { ...validMaster, experience: [] }; // would fail masterSchema
+  const { raw, usage } = await parseResumeRaw('text', { fetch: mockFetch(broken) });
+  assert.equal(raw.experience.length, 0); // returned as-is, no throw
+  assert.equal(usage.outputTokens, 340);
+});
+
+test('lenientMaster fills defaults and never throws on junk', () => {
+  const c = lenientMaster(null);
+  assert.deepEqual(c.contact, { name: '', email: '', location: '' });
+  assert.deepEqual(c.experience, []);
+  assert.deepEqual(c.summary_variants, {});
+});
+
+test('lenientMaster drops empty entries and tolerates bare-string bullets', () => {
+  const c = lenientMaster({
+    contact: { name: 'A' },
+    summary_variants: { good: 'text', blank: '' },
+    skills: [
+      { group: 'Kept', items: [{ name: 'X' }, { name: '' }] },
+      { group: '', items: [{ name: 'Y' }] }, // dropped: no group name
+    ],
+    experience: [
+      { company: 'Acme', bullets: ['did a thing', { text: 'did another' }, { text: '' }] },
+      { company: '', bullets: ['orphan'] }, // dropped: no company
+    ],
+  });
+  assert.equal(c.skills.length, 1);
+  assert.equal(c.skills[0].items.length, 1); // empty item dropped
+  assert.equal(c.experience.length, 1);
+  assert.deepEqual(c.experience[0].bullets.map((b) => b.text), ['did a thing', 'did another']);
+  assert.equal(Object.keys(c.summary_variants).length, 1); // blank variant dropped
+});
+
+test('masterIssues is empty for a valid content and lists gaps otherwise', () => {
+  assert.deepEqual(masterIssues(masterSchema.parse(validMaster)), []);
+  const gaps = masterIssues(lenientMaster({ experience: [{ company: 'Acme', bullets: [] }] }));
+  assert.ok(gaps.some((g) => /summary/.test(g)));
+  assert.ok(gaps.some((g) => /skills/.test(g)));
+  assert.ok(gaps.some((g) => /Acme.*bullet/.test(g)));
 });

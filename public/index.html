@@ -144,6 +144,20 @@
       </section>
 
       <section id="tab-resumes" class="tab-panel">
+        <div class="card-form" id="master-card">
+          <h2>Master resume</h2>
+          <p class="hint">The source every tailored resume is built from. Upload a .docx and it becomes your master resume, replacing the current one. You can also edit it by hand. Changes take effect on your next tailor.</p>
+          <div class="master-actions">
+            <label class="file-btn" id="master-file-btn">
+              <span>Import from .docx</span>
+              <input type="file" id="master-file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+            </label>
+            <button type="button" id="master-edit-btn" class="btn-secondary">Edit master resume</button>
+            <span id="master-status" class="hint master-status"></span>
+          </div>
+          <div id="master-editor" class="master-editor" hidden></div>
+        </div>
+
         <div class="card-form">
           <h2>Resumes</h2>
           <ul id="resumes-list" class="resumes-list"></ul>

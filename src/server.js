@@ -41,7 +41,9 @@ const { getUserId } = await import('./lib/seed.js');
 const cron = (await import('node-cron')).default;
 
 const app = express();
-app.use(express.json());
+// 5mb ceiling so a base64-encoded .docx resume upload (POST /api/resumes/
+// master/import) fits; normal JSON bodies are tiny.
+app.use(express.json({ limit: '5mb' }));
 
 const apiRouter = express.Router();
 apiRouter.get('/health', (req, res) => res.json({ ok: true }));

@@ -1,11 +1,119 @@
 import { Router } from 'express';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { resumes, jobs, applications } from '../db/schema.js';
+import { resumes, jobs, applications, aiUsage } from '../db/schema.js';
 import { getUserId } from '../lib/seed.js';
 import { renderResume } from '../lib/resume-render.js';
+import { masterSchema, friendlyZodError, parseResumeText, PARSE_MODEL } from '../lib/master-core.js';
+import { extractDocxText } from '../lib/docx.js';
+import { costUsd } from '../lib/pricing.js';
 
 const router = Router();
+
+// Save (or create) the structured master resume. Validated against masterSchema
+// so we never persist a master that would make tailoring throw. Rendering is
+// recomputed on the fly (renderedHtml cleared), so a print view always matches.
+router.put('/master', async (req, res, next) => {
+  try {
+    const userId = await getUserId();
+    let content;
+    try {
+      content = masterSchema.parse(req.body?.content);
+    } catch (err) {
+      if (err?.issues) return res.status(400).json({ error: friendlyZodError(err) });
+      throw err;
+    }
+
+    const [existing] = await db
+      .select({ id: resumes.id })
+      .from(resumes)
+      .where(and(eq(resumes.userId, userId), eq(resumes.kind, 'master')))
+      .limit(1);
+
+    let row;
+    if (existing) {
+      [row] = await db
+        .update(resumes)
+        .set({ content, renderedHtml: null })
+        .where(eq(resumes.id, existing.id))
+        .returning();
+    } else {
+      [row] = await db
+        .insert(resumes)
+        .values({ userId, kind: 'master', content })
+        .returning();
+    }
+    res.json({ id: row.id, kind: 'master', saved: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Import a .docx and AI-parse it into a structured master. Does NOT save — the
+// parsed content is returned for the human to review and edit before PUT.
+router.post('/master/import', async (req, res, next) => {
+  try {
+    const userId = await getUserId();
+    const { filename, data_base64: dataBase64 } = req.body || {};
+
+    if (!dataBase64 || typeof dataBase64 !== 'string') {
+      return res.status(400).json({ error: 'No file data was received.' });
+    }
+    if (filename && !/\.docx$/i.test(filename)) {
+      return res.status(400).json({ error: 'Please upload a .docx file.' });
+    }
+
+    let buffer;
+    try {
+      buffer = Buffer.from(dataBase64, 'base64');
+    } catch {
+      return res.status(400).json({ error: 'Could not decode the uploaded file.' });
+    }
+    if (!buffer.length) return res.status(400).json({ error: 'The uploaded file was empty.' });
+    // A .docx is a ZIP — it must start with "PK".
+    if (buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
+      return res.status(400).json({ error: "That doesn't look like a .docx file." });
+    }
+
+    let text;
+    try {
+      text = await extractDocxText(buffer);
+    } catch {
+      return res.status(422).json({ error: 'Could not read text from that .docx.' });
+    }
+    if (!text || text.length < 40) {
+      return res.status(422).json({ error: 'That .docx had almost no readable text.' });
+    }
+
+    let content;
+    let usage;
+    try {
+      ({ content, usage } = await parseResumeText(text));
+    } catch {
+      return res
+        .status(502)
+        .json({ error: 'The AI could not parse that resume. Try the manual editor instead.' });
+    }
+
+    // Meter the parse call; failure to log must never fail the import.
+    try {
+      await db.insert(aiUsage).values({
+        userId,
+        purpose: 'resume_import',
+        model: PARSE_MODEL,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        costUsd: String(costUsd(PARSE_MODEL, usage.inputTokens, usage.outputTokens)),
+      });
+    } catch {
+      /* usage metering is best-effort */
+    }
+
+    res.json({ content, text_chars: text.length });
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.get('/', async (req, res, next) => {
   try {

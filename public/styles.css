@@ -1359,3 +1359,141 @@ td a {
     scroll-behavior: auto;
   }
 }
+
+/* ===================== MASTER RESUME EDITOR ===================== */
+.master-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.7em;
+  margin-top: 0.4em;
+}
+.master-status {
+  flex-basis: 100%;
+  margin: 0;
+}
+.master-status.error {
+  color: var(--bad);
+}
+
+/* File picker styled as a button (the real <input> is visually hidden). */
+.file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  cursor: pointer;
+  padding: 0.62em 1.1em;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  box-shadow: var(--shadow-cta);
+  width: auto;
+  transition: transform 0.15s var(--ease), filter 0.15s var(--ease);
+}
+.file-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.file-btn.busy {
+  pointer-events: none;
+  opacity: 0.7;
+}
+.file-btn.busy::after {
+  content: '';
+  width: 0.85em;
+  height: 0.85em;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: me-spin 0.7s linear infinite;
+}
+@keyframes me-spin {
+  to { transform: rotate(360deg); }
+}
+
+.master-editor {
+  margin-top: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4em;
+}
+.me-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7em;
+}
+.me-section > h3 {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--fg-muted);
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--border);
+}
+/* A repeated unit: one skill group, one role, one variant, one entry. */
+.me-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7em;
+  padding: 0.95em;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.me-row {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.7em;
+}
+.me-row > label {
+  flex: 1;
+  min-width: 160px;
+}
+/* Nested item rows (skills, bullets) sit slightly inset from their group. */
+.me-subrow {
+  padding-left: 0.9em;
+  border-left: 2px solid var(--border);
+}
+.me-section .btn-secondary,
+.me-section .btn-danger,
+.me-group .btn-secondary,
+.me-group .btn-danger {
+  align-self: flex-start;
+  padding: 0.5em 0.9em;
+  font-size: 0.8rem;
+}
+.me-add-sm {
+  align-self: flex-start;
+}
+/* The tiny "×" remove buttons on skill items and bullets. */
+.me-x {
+  align-self: flex-end;
+  width: 2.2em;
+  min-width: 2.2em;
+  padding: 0.5em 0;
+  text-align: center;
+  line-height: 1;
+}
+.me-footer {
+  display: flex;
+  gap: 0.7em;
+  flex-wrap: wrap;
+  padding-top: 0.4em;
+}
+
+@media (max-width: 768px) {
+  .me-row > label {
+    min-width: 100%;
+  }
+  .me-subrow {
+    padding-left: 0.6em;
+  }
+  .master-actions .btn-secondary,
+  .file-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}

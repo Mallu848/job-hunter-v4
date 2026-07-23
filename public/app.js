@@ -997,6 +997,444 @@ async function openPrintView(resumeId) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+// ---------- Master resume editor ----------
+
+let masterResumeId = null; // id of the existing master row, if any
+let masterDraft = null; // working model currently being edited
+
+// Stored master content -> editor working model. summary_variants is an object
+// keyed by variant name; the editor works with an ordered [{key, text}] list.
+function masterToDraft(content) {
+  content = content || {};
+  return {
+    meta: content.meta,
+    contact: {
+      name: content.contact?.name || '',
+      email: content.contact?.email || '',
+      location: content.contact?.location || '',
+    },
+    variants: Object.entries(content.summary_variants || {}).map(([key, text]) => ({ key, text })),
+    skills: (content.skills || []).map((g) => ({
+      group: g.group || '',
+      items: (g.items || []).map((it) => ({
+        name: it.name || '',
+        aliases: Array.isArray(it.aliases) ? it.aliases.slice() : [],
+      })),
+    })),
+    experience: (content.experience || []).map((r) => ({
+      company: r.company || '',
+      title: r.title || '',
+      location: r.location || '',
+      start: r.start || '',
+      end: r.end || '',
+      bullets: (r.bullets || []).map((b) => ({ text: b.text || '' })),
+    })),
+    education: (content.education || []).map((ed) => ({
+      school: ed.school || '',
+      degree: ed.degree || '',
+      graduated: ed.graduated || '',
+      location: ed.location || '',
+    })),
+    certifications: (content.certifications || []).map((c) => ({
+      name: c.name || '',
+      date: c.date || '',
+      note: c.note || '',
+    })),
+  };
+}
+
+// Editor working model -> stored content shape for PUT /api/resumes/master.
+function draftToContent(d) {
+  const summaryVariants = {};
+  for (const v of d.variants) {
+    const key = (v.key || '').trim();
+    if (key) summaryVariants[key] = (v.text || '').trim();
+  }
+  const content = {
+    contact: {
+      name: d.contact.name.trim(),
+      email: d.contact.email.trim(),
+      location: d.contact.location.trim(),
+    },
+    summary_variants: summaryVariants,
+    skills: d.skills
+      .filter((g) => g.group.trim())
+      .map((g) => ({
+        group: g.group.trim(),
+        items: g.items
+          .filter((it) => it.name.trim())
+          .map((it) => ({ name: it.name.trim(), aliases: it.aliases.map((a) => a.trim()).filter(Boolean) })),
+      })),
+    experience: d.experience
+      .filter((r) => r.company.trim())
+      .map((r) => ({
+        company: r.company.trim(),
+        title: r.title.trim(),
+        location: r.location.trim(),
+        start: r.start.trim(),
+        end: r.end.trim(),
+        bullets: r.bullets.filter((b) => b.text.trim()).map((b) => ({ text: b.text.trim(), tags: [] })),
+      })),
+    education: d.education
+      .filter((ed) => ed.school.trim())
+      .map((ed) => ({
+        school: ed.school.trim(),
+        degree: ed.degree.trim(),
+        graduated: ed.graduated.trim(),
+        location: ed.location.trim(),
+      })),
+    certifications: d.certifications
+      .filter((c) => c.name.trim())
+      .map((c) => {
+        const cert = { name: c.name.trim(), date: c.date.trim() || null };
+        if (c.note.trim()) cert.note = c.note.trim();
+        return cert;
+      }),
+  };
+  if (d.meta !== undefined) content.meta = d.meta;
+  return content;
+}
+
+// Text input/textarea bound to a setter — typing mutates the draft silently
+// (no re-render, so focus is never lost). Only add/remove re-renders.
+function meField(labelText, value, onInput, opts = {}) {
+  const label = document.createElement('label');
+  if (opts.full) label.className = 'full-width';
+  label.appendChild(document.createTextNode(labelText));
+  const input = opts.textarea ? document.createElement('textarea') : document.createElement('input');
+  if (opts.textarea) input.rows = opts.rows || 2;
+  else input.type = 'text';
+  if (opts.placeholder) input.placeholder = opts.placeholder;
+  input.value = value || '';
+  input.addEventListener('input', () => onInput(input.value));
+  label.appendChild(input);
+  return label;
+}
+
+function meButton(text, className, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = className;
+  b.textContent = text;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+function meSection(title) {
+  const sec = document.createElement('div');
+  sec.className = 'me-section';
+  const h = document.createElement('h3');
+  h.textContent = title;
+  sec.appendChild(h);
+  return sec;
+}
+
+function renderMasterEditor() {
+  const host = document.getElementById('master-editor');
+  host.textContent = '';
+  const d = masterDraft;
+  if (!d) return;
+
+  // Contact
+  const contact = meSection('Contact');
+  const cgrid = document.createElement('div');
+  cgrid.className = 'form-grid';
+  cgrid.appendChild(meField('Name', d.contact.name, (v) => (d.contact.name = v)));
+  cgrid.appendChild(meField('Email', d.contact.email, (v) => (d.contact.email = v)));
+  cgrid.appendChild(meField('Location', d.contact.location, (v) => (d.contact.location = v)));
+  contact.appendChild(cgrid);
+  host.appendChild(contact);
+
+  // Summary variants
+  const sv = meSection('Summary variants');
+  d.variants.forEach((v, i) => {
+    const row = document.createElement('div');
+    row.className = 'me-group';
+    row.appendChild(meField('Key', v.key, (val) => (v.key = val), { placeholder: 'azure_administrator' }));
+    row.appendChild(meField('Summary', v.text, (val) => (v.text = val), { textarea: true, rows: 3, full: true }));
+    row.appendChild(meButton('Remove', 'btn-danger', () => {
+      d.variants.splice(i, 1);
+      renderMasterEditor();
+    }));
+    sv.appendChild(row);
+  });
+  sv.appendChild(meButton('Add summary variant', 'btn-secondary', () => {
+    d.variants.push({ key: '', text: '' });
+    renderMasterEditor();
+  }));
+  host.appendChild(sv);
+
+  // Skills
+  const sk = meSection('Skills');
+  d.skills.forEach((g, gi) => {
+    const groupWrap = document.createElement('div');
+    groupWrap.className = 'me-group';
+    const ghead = document.createElement('div');
+    ghead.className = 'me-row';
+    ghead.appendChild(meField('Group', g.group, (val) => (g.group = val), { placeholder: 'Identity & Access' }));
+    ghead.appendChild(meButton('Remove group', 'btn-danger', () => {
+      d.skills.splice(gi, 1);
+      renderMasterEditor();
+    }));
+    groupWrap.appendChild(ghead);
+    g.items.forEach((it, ii) => {
+      const irow = document.createElement('div');
+      irow.className = 'me-row me-subrow';
+      irow.appendChild(meField('Skill', it.name, (val) => (it.name = val)));
+      irow.appendChild(meField('Aliases (comma separated)', it.aliases.join(', '), (val) => {
+        it.aliases = val.split(',').map((s) => s.trim()).filter(Boolean);
+      }, { placeholder: 'Azure AD, AAD' }));
+      irow.appendChild(meButton('×', 'btn-danger me-x', () => {
+        g.items.splice(ii, 1);
+        renderMasterEditor();
+      }));
+      groupWrap.appendChild(irow);
+    });
+    groupWrap.appendChild(meButton('Add skill', 'btn-secondary me-add-sm', () => {
+      g.items.push({ name: '', aliases: [] });
+      renderMasterEditor();
+    }));
+    sk.appendChild(groupWrap);
+  });
+  sk.appendChild(meButton('Add skill group', 'btn-secondary', () => {
+    d.skills.push({ group: '', items: [{ name: '', aliases: [] }] });
+    renderMasterEditor();
+  }));
+  host.appendChild(sk);
+
+  // Experience
+  const exp = meSection('Experience');
+  d.experience.forEach((r, ri) => {
+    const roleWrap = document.createElement('div');
+    roleWrap.className = 'me-group';
+    const rhead = document.createElement('div');
+    rhead.className = 'form-grid';
+    rhead.appendChild(meField('Company', r.company, (v) => (r.company = v)));
+    rhead.appendChild(meField('Title', r.title, (v) => (r.title = v)));
+    rhead.appendChild(meField('Location', r.location, (v) => (r.location = v)));
+    rhead.appendChild(meField('Start', r.start, (v) => (r.start = v), { placeholder: 'Feb 2022' }));
+    rhead.appendChild(meField('End', r.end, (v) => (r.end = v), { placeholder: 'Present' }));
+    roleWrap.appendChild(rhead);
+    r.bullets.forEach((b, bi) => {
+      const brow = document.createElement('div');
+      brow.className = 'me-row me-subrow';
+      brow.appendChild(meField('Bullet', b.text, (v) => (b.text = v), { textarea: true, rows: 2, full: true }));
+      brow.appendChild(meButton('×', 'btn-danger me-x', () => {
+        r.bullets.splice(bi, 1);
+        renderMasterEditor();
+      }));
+      roleWrap.appendChild(brow);
+    });
+    const roleFooter = document.createElement('div');
+    roleFooter.className = 'me-row';
+    roleFooter.appendChild(meButton('Add bullet', 'btn-secondary me-add-sm', () => {
+      r.bullets.push({ text: '' });
+      renderMasterEditor();
+    }));
+    roleFooter.appendChild(meButton('Remove role', 'btn-danger', () => {
+      d.experience.splice(ri, 1);
+      renderMasterEditor();
+    }));
+    roleWrap.appendChild(roleFooter);
+    exp.appendChild(roleWrap);
+  });
+  exp.appendChild(meButton('Add role', 'btn-secondary', () => {
+    d.experience.push({ company: '', title: '', location: '', start: '', end: '', bullets: [{ text: '' }] });
+    renderMasterEditor();
+  }));
+  host.appendChild(exp);
+
+  // Education
+  const edu = meSection('Education');
+  d.education.forEach((ed, ei) => {
+    const row = document.createElement('div');
+    row.className = 'me-group';
+    const grid = document.createElement('div');
+    grid.className = 'form-grid';
+    grid.appendChild(meField('School', ed.school, (v) => (ed.school = v)));
+    grid.appendChild(meField('Degree', ed.degree, (v) => (ed.degree = v)));
+    grid.appendChild(meField('Graduated', ed.graduated, (v) => (ed.graduated = v), { placeholder: 'Jun 2021' }));
+    grid.appendChild(meField('Location', ed.location, (v) => (ed.location = v)));
+    row.appendChild(grid);
+    row.appendChild(meButton('Remove', 'btn-danger', () => {
+      d.education.splice(ei, 1);
+      renderMasterEditor();
+    }));
+    edu.appendChild(row);
+  });
+  edu.appendChild(meButton('Add education', 'btn-secondary', () => {
+    d.education.push({ school: '', degree: '', graduated: '', location: '' });
+    renderMasterEditor();
+  }));
+  host.appendChild(edu);
+
+  // Certifications
+  const certs = meSection('Certifications');
+  const certHint = document.createElement('p');
+  certHint.className = 'hint';
+  certHint.textContent =
+    'Leave the date blank if unconfirmed. Add a note to hold a cert back from tailored resumes until you verify it.';
+  certs.appendChild(certHint);
+  d.certifications.forEach((c, ci) => {
+    const row = document.createElement('div');
+    row.className = 'me-group';
+    const grid = document.createElement('div');
+    grid.className = 'form-grid';
+    grid.appendChild(meField('Name', c.name, (v) => (c.name = v), { full: true }));
+    grid.appendChild(meField('Date', c.date, (v) => (c.date = v), { placeholder: 'e.g. Mar 2025' }));
+    grid.appendChild(meField('Note (holds it back)', c.note, (v) => (c.note = v), { placeholder: 'unverified' }));
+    row.appendChild(grid);
+    row.appendChild(meButton('Remove', 'btn-danger', () => {
+      d.certifications.splice(ci, 1);
+      renderMasterEditor();
+    }));
+    certs.appendChild(row);
+  });
+  certs.appendChild(meButton('Add certification', 'btn-secondary', () => {
+    d.certifications.push({ name: '', date: '', note: '' });
+    renderMasterEditor();
+  }));
+  host.appendChild(certs);
+
+  // Footer
+  const footer = document.createElement('div');
+  footer.className = 'me-footer';
+  const saveBtn = meButton('Save master resume', '', saveMaster);
+  saveBtn.id = 'master-save-btn';
+  footer.appendChild(saveBtn);
+  footer.appendChild(meButton('Cancel', 'btn-secondary', closeMasterEditor));
+  host.appendChild(footer);
+}
+
+function setMasterStatus(msg, isError) {
+  const el = document.getElementById('master-status');
+  el.textContent = msg || '';
+  el.classList.toggle('error', !!isError);
+}
+
+async function openMasterEditor() {
+  try {
+    const rows = await apiJson('/api/resumes');
+    const masterRow = (rows || []).find((r) => r.kind === 'master');
+    masterResumeId = masterRow ? masterRow.id : null;
+    let content = {};
+    if (masterResumeId) {
+      const full = await apiJson(`/api/resumes/${masterResumeId}`);
+      content = full.content || {};
+    }
+    masterDraft = masterToDraft(content);
+    renderMasterEditor();
+    document.getElementById('master-editor').hidden = false;
+    setMasterStatus('');
+  } catch (err) {
+    // toast already shown by apiJson
+  }
+}
+
+function closeMasterEditor() {
+  document.getElementById('master-editor').hidden = true;
+  masterDraft = null;
+  setMasterStatus('');
+}
+
+async function saveMaster() {
+  if (!masterDraft) return;
+  const content = draftToContent(masterDraft);
+  const btn = document.getElementById('master-save-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  }
+  try {
+    const res = await apiJson('/api/resumes/master', {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    });
+    masterResumeId = res.id;
+    showToast('Master resume saved.');
+    closeMasterEditor();
+    await loadResumes();
+  } catch (err) {
+    // apiJson toasted the validation message (e.g. "skills: array must contain
+    // at least 1 element"); leave the editor open so nothing is lost.
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Save master resume';
+    }
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => {
+      const s = String(reader.result);
+      resolve(s.slice(s.indexOf(',') + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function countSummary(c) {
+  const n = (arr) => (Array.isArray(arr) ? arr.length : 0);
+  const plural = (k, word) => `${k} ${word}${k === 1 ? '' : 's'}`;
+  return `${plural(n(c.experience), 'role')}, ${plural(n(c.skills), 'skill group')}, ${plural(n(c.certifications), 'cert')}`;
+}
+
+// Uploading a .docx replaces the master in one step: parse it, then save it
+// straight away. The editor is not required — it's there only for fine-tuning.
+async function importMasterDocx(file) {
+  if (!file) return;
+  if (!/\.docx$/i.test(file.name)) {
+    setMasterStatus('Please choose a .docx file.', true);
+    return;
+  }
+  const btn = document.getElementById('master-file-btn');
+  btn.classList.add('busy');
+  setMasterStatus(`Reading and importing ${file.name}… this takes a few seconds.`);
+  try {
+    const dataBase64 = await fileToBase64(file);
+    const { content } = await apiJson('/api/resumes/master/import', {
+      method: 'POST',
+      body: JSON.stringify({ filename: file.name, data_base64: dataBase64 }),
+    });
+    // Save immediately — the uploaded .docx becomes the master.
+    const saved = await apiJson('/api/resumes/master', {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    });
+    masterResumeId = saved.id;
+    setMasterStatus(
+      `Saved as your master resume from ${file.name} — ${countSummary(content)}. Use “Edit master resume” to review or fine-tune.`,
+    );
+    showToast('Master resume replaced.');
+    // If the editor happens to be open, refresh it to the new content.
+    if (masterDraft) {
+      masterDraft = masterToDraft(content);
+      renderMasterEditor();
+    }
+    await loadResumes();
+  } catch (err) {
+    setMasterStatus('Import failed — see the message above. You can also build it by hand with “Edit master resume”.', true);
+  } finally {
+    btn.classList.remove('busy');
+  }
+}
+
+function initMasterEditor() {
+  const editBtn = document.getElementById('master-edit-btn');
+  if (editBtn) editBtn.addEventListener('click', openMasterEditor);
+  const fileInput = document.getElementById('master-file');
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      importMasterDocx(file);
+      e.target.value = ''; // let the same file be re-selected
+    });
+  }
+}
+
 function diffSection(title) {
   const wrap = document.createElement('div');
   wrap.className = 'diff-section';
@@ -1281,6 +1719,7 @@ async function init() {
   initSettingsForm();
   initScanButton();
   initWatchlistForm();
+  initMasterEditor();
 
   const ok = await tryUnlock();
   if (ok) {

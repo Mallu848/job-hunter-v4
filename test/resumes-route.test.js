@@ -45,7 +45,7 @@ let structuredId;
 let rawId;
 
 before(async () => {
-  const [user] = await db.insert(users).values({ email: 'rohanantony848@gmail.com' }).returning();
+  const [user] = await db.insert(users).values({ email: 'owner@example.com' }).returning();
 
   const [structured] = await db
     .insert(resumes)

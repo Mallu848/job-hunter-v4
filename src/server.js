@@ -41,6 +41,8 @@ const { getUserId } = await import('./lib/seed.js');
 const cron = (await import('node-cron')).default;
 
 const app = express();
+// Behind Railway's proxy: use the real client IP (auth rate limiting).
+app.set('trust proxy', 1);
 // 5mb ceiling so a base64-encoded .docx resume upload (POST /api/resumes/
 // master/import) fits; normal JSON bodies are tiny.
 app.use(express.json({ limit: '5mb' }));

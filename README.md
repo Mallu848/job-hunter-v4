@@ -46,7 +46,7 @@ Server listens on `http://localhost:3000` (or `$PORT`). On first boot it will:
 
 1. Generate an `APP_SECRET` and append it to `.env` if one isn't already set.
 2. Create tables in `./data/pglite` if they don't exist.
-3. Seed the single user (`rohanantony848@gmail.com`), profile, and master
+3. Seed the single user (`SEED_EMAIL`, default `owner@example.com`), profile, and master
    resume from `seed-data.json` if they don't already exist.
 
 Open `http://localhost:3000` — the frontend will prompt for the app secret

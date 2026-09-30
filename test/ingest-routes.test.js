@@ -30,7 +30,7 @@ let base;
 let userId;
 
 before(async () => {
-  const [user] = await db.insert(users).values({ email: 'rohanantony848@gmail.com' }).returning();
+  const [user] = await db.insert(users).values({ email: 'owner@example.com' }).returning();
   userId = user.id;
   await db.insert(profiles).values({
     userId,

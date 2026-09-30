@@ -8,7 +8,8 @@ import { users, profiles, resumes } from '../db/schema.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '../..');
 
-const SEED_EMAIL = 'rohanantony848@gmail.com';
+// Single-user app: the owner's email comes from the environment, never source.
+const SEED_EMAIL = process.env.SEED_EMAIL || 'owner@example.com';
 
 let cachedUserId = null;
 
